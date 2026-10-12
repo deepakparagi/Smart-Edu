@@ -8,23 +8,23 @@
 
 ## Phase 0 — Audit & Baseline
 
-- [ ] Read all spec docs, source, migrations, configs; verify versions resolve
-- [ ] Run all existing build/test/lint commands; record baseline in `docs/AUDIT.md`
-- [ ] Boot real stack (MySQL via Docker, ML, backend, frontend); exercise every endpoint
-- [ ] Create `docs/PROGRESS.md`, `docs/DECISIONS.md`, `docs/HUMAN_ACTIONS.md`, `docs/AUDIT.md`
-- [ ] Create branch `production-hardening`
-- [ ] **Verify suspected defects #1–12** (see CLAUDE_CODE_MASTER_PROMPT §3.1)
-- [ ] **Verify UI defects** (see CLAUDE_CODE_MASTER_PROMPT §3.2)
+- [x] Read all spec docs, source, migrations, configs; verify versions resolve
+- [x] Run all existing build/test/lint commands; record baseline in `docs/AUDIT.md`
+- [x] Boot real stack (MySQL via Docker, ML, backend, frontend); exercise every endpoint
+- [x] Create `docs/PROGRESS.md`, `docs/DECISIONS.md`, `docs/HUMAN_ACTIONS.md`, `docs/AUDIT.md`
+- [x] Create branch `production-hardening`
+- [x] **Verify suspected defects #1–12** (see CLAUDE_CODE_MASTER_PROMPT §3.1)
+- [x] **Verify UI defects** (see CLAUDE_CODE_MASTER_PROMPT §3.2)
 
 ---
 
 ## Phase 1 — Make It Truly Live
 
-- [ ] `docker-compose.yml` as single dev entry point (mysql, ml, backend, frontend, mailpit)
-- [ ] `depends_on: condition: service_healthy` for all services
-- [ ] Complete, commented `.env.example`; document every variable in `docs/ENVIRONMENT.md`
+- [x] `docker-compose.yml` as single dev entry point (mysql, ml, backend, frontend, mailpit)
+- [x] `depends_on: condition: service_healthy` for all services
+- [x] Complete, commented `.env.example`; document every variable in `docs/ENVIRONMENT.md`
 - [ ] Dockerfiles for backend and frontend (multi-stage, non-root, healthcheck, .dockerignore)
-- [ ] Flyway V1–V8 apply cleanly on empty MySQL 8.4; add V9+ for new changes
+- [x] Flyway V1–V8 apply cleanly on empty MySQL 8.4; add V9+ for new changes
 - [ ] Migration test (empty DB → latest, via Testcontainers)
 - [ ] Seed data (dev profile only): demo student/parent/admin + sample materials
 - [ ] Frontend data layer: typed API client (credentials: include, base URL from env, uniform error parsing, 401→login)
@@ -37,35 +37,35 @@
 
 ### 2.1 API Conventions
 - [ ] RFC 7807 `application/problem+json` errors (code, message, fieldErrors, traceId)
-- [ ] Bean Validation on every request DTO; reject unknown/oversized payloads
-- [ ] Pagination (page, size, sort, capped) on every list endpoint; fix N+1
+- [x] Bean Validation on every request DTO; reject unknown/oversized payloads
+- [x] Pagination (page, size, sort, capped) on every list endpoint; fix N+1
 - [ ] OpenAPI via springdoc (dev enabled, prod protected); generate TS types; CI drift check
-- [ ] Optimistic locking (`@Version`) on mutable aggregates (tasks, flashcards)
-- [ ] All times stored as UTC `Instant`; user-facing dates computed in user's timezone
+- [x] Optimistic locking (`@Version`) on mutable aggregates (tasks, flashcards)
+- [x] All times stored as UTC `Instant`; user-facing dates computed in user's timezone
 
 ### 2.2 Auth & Accounts
-- [ ] Password reset: `POST /auth/forgot-password` (always 200), `POST /auth/reset-password`
-- [ ] Tokens: random, stored hashed (SHA-256), 30–60 min TTL, single-use, rate-limited
-- [ ] Email via Spring Mail (Mailpit in dev); pages: `/forgot-password`, `/reset-password`
-- [ ] Email verification (token flow) with resend endpoint; unverified users can use app with banner
-- [ ] Change password (requires current password) + invalidate all sessions via `users.token_version`
-- [ ] Logout invalidates server-side (version bump or jti denylist with expiry cleanup)
-- [ ] Account deletion + data export (student's own data as JSON); delete DB rows AND stored files
+- [x] Password reset: `POST /auth/forgot-password` (always 200), `POST /auth/reset-password`
+- [x] Tokens: random, stored hashed (SHA-256), 30–60 min TTL, single-use, rate-limited
+- [x] Email via Spring Mail (Mailpit in dev); pages: `/forgot-password`, `/reset-password`
+- [x] Email verification (token flow) with resend endpoint; unverified users can use app with banner
+- [x] Change password (requires current password) + invalidate all sessions via `users.token_version`
+- [x] Logout invalidates server-side (version bump or jti denylist with expiry cleanup)
+- [x] Account deletion + data export (student's own data as JSON); delete DB rows AND stored files
 - [ ] Brute-force protection: per IP + per email limits, constant-time responses
-- [ ] Account `enabled` flag (admin can deactivate)
+- [x] Account `enabled` flag (admin can deactivate)
 
 ### 2.3 Materials Lifecycle
-- [ ] `DELETE /materials/{id}` removes DB rows (material, chunks, derived quizzes/flashcards per FK) AND stored file; idempotent; ownership-checked
-- [ ] `GET /materials`, `GET /materials/{id}` (summary, topics, keywords, status, error, page count)
-- [ ] `GET /materials/{id}/text` (paginated), `POST /materials/{id}/reprocess`
-- [ ] `GET /materials/{id}/file` (owner-only download with Content-Disposition, X-Content-Type-Options: nosniff)
-- [ ] Search: `GET /materials/search?q=` over user's own text (MySQL FULLTEXT on chunks) → snippets with page numbers
-- [ ] Persist chunks: `material_chunks(material_id, ordinal, page, heading, text, token_count, embedding NULLABLE)`
-- [ ] Per-user storage quota and per-file limits (configurable); friendly 4xx messages
+- [x] `DELETE /materials/{id}` removes DB rows (material, chunks, derived quizzes/flashcards per FK) AND stored file; idempotent; ownership-checked
+- [x] `GET /materials`, `GET /materials/{id}` (summary, topics, keywords, status, error, page count)
+- [x] `GET /materials/{id}/text` (paginated), `POST /materials/{id}/reprocess`
+- [x] `GET /materials/{id}/file` (owner-only download with Content-Disposition, X-Content-Type-Options: nosniff)
+- [x] Search: `GET /materials/search?q=` over user's own text (MySQL FULLTEXT on chunks) → snippets with page numbers
+- [x] Persist chunks: `material_chunks(material_id, ordinal, page, heading, text, token_count, embedding NULLABLE)`
+- [x] Per-user storage quota and per-file limits (configurable); friendly 4xx messages
 
 ### 2.4 Planning, Focus, Progress (Correctness)
 - [ ] Planner spec (Appendix B): idempotent regen, daily cap never exceeded, carry-over, spaced review, manual tasks preserved, 422 when no materials
-- [ ] Add `users.timezone` (IANA, default `Asia/Kolkata`, set from browser at registration, editable in Settings)
+- [x] Add `users.timezone` (IANA, default `Asia/Kolkata`, set from browser at registration, editable in Settings)
 - [ ] Use timezone for: "today", due flashcards, streaks, daily/weekly buckets, plan ranges
 - [ ] Focus sessions: server-side timestamps; exactly one active session/user; auto-close stale (cap 4h); `GET /focus/active` to restore; optional auto-complete linked task
 - [ ] Progress: `GET /progress/overview` and `/trends` with streak, weekly focus time, quiz accuracy, task completion, flashcard retention, **weak topics** (per-topic quiz accuracy, lowest first); SQL with indexes; tests with fixed clocks across TZ/DST
@@ -74,13 +74,13 @@
 - [ ] Parent: link request by email with **uniform responses**; student approves/rejects; either side can revoke (status `REVOKED`); aggregate-only view
 - [ ] Parents **cannot** read materials, text, chat, quiz answers, flashcards (server-side enforced + tests)
 - [ ] Admin: paginated/searchable user list, role change (guard: cannot demote/disable last admin or self), deactivate/reactivate, aggregate overview
-- [ ] `audit_log` table (actor, action, target, ip, time) for role changes, deactivations, deletions, link changes, logins/failed logins; admin audit view with pagination
+- [x] `audit_log` table (actor, action, target, ip, time) for role changes, deactivations, deletions, link changes, logins/failed logins; admin audit view with pagination
 - [ ] First-admin bootstrap: if `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` set and no admin exists, create/promote once at startup; never log password
 
 ### 2.6 Flashcards
-- [ ] Full CRUD: create, edit, delete, list/filter (by material, due, search); optional deck/tag
-- [ ] Generation de-duplicates against existing cards
-- [ ] Review endpoint implements Appendix A (4 ratings) + records review history (`flashcard_reviews`) for retention analytics
+- [x] Full CRUD: create, edit, delete, list/filter (by material, due, search); optional deck/tag
+- [x] Generation de-duplicates against existing cards
+- [x] Review endpoint implements Appendix A (4 ratings) + records review history (`flashcard_reviews`) for retention analytics
 
 ---
 
@@ -107,15 +107,15 @@
 
 ## Phase 4 — ML / AI Upgrade (`ml/`)
 
-- [ ] **Extraction**: keep `[Page N]` markers; remove headers/footers; fix hyphenation/whitespace; detect headings; handle encrypted/corrupt files with clear error codes; per-file time/page limits
+- [x] **Extraction**: keep `[Page N]` markers; remove headers/footers; fix hyphenation/whitespace; detect headings; handle encrypted/corrupt files with clear error codes; per-file time/page limits
 - [ ] **OCR fallback** (Tesseract via `pytesseract` + PyMuPDF rendering) for low-text pages; languages configurable (`OCR_LANGS`, default `eng`); install Tesseract in Docker; `OCR_ENABLED` flag
-- [ ] **Chunking**: ~300–500 token passages with overlap, carrying `page` and `heading`; returned to backend for `material_chunks` persistence
+- [x] **Chunking**: ~300–500 token passages with overlap, carrying `page` and `heading`; returned to backend for `material_chunks` persistence
 - [ ] **Keywords/topics**: phrase-aware (TF-IDF/RAKE/YAKE), stop-word handling, importance ∈ [0,1], stable ordering
 - [ ] **Summary**: extractive (TextRank/MMR), length-controlled, always flagged draft; optional abstractive with LLM provider, still flagged draft
-- [ ] **Questions**: broaden definition detection (`is/are/means/refers to/is defined as/is called/known as/termed`, "Term: definition", parenthetical abbreviations); both directions; distractors from same material, similar type/length, de-duplicated, never substring; randomized answer positions (seeded for tests); return `explanation`, `source_reference`, difficulty; if too few valid items, return what exists + clear message (never filler); optional LLM must pass grounding check or be discarded
-- [ ] **Flashcards**: definition cards + cloze deletions from key sentences; include `source_reference`
+- [x] **Questions**: broaden definition detection (`is/are/means/refers to/is defined as/is called/known as/termed`, "Term: definition", parenthetical abbreviations); both directions; distractors from same material, similar type/length, de-duplicated, never substring; randomized answer positions (seeded for tests); return `explanation`, `source_reference`, difficulty; if too few valid items, return what exists + clear message (never filler); optional LLM must pass grounding check or be discarded
+- [x] **Flashcards**: definition cards + cloze deletions from key sentences; include `source_reference`
 - [ ] **Retrieval**: hybrid BM25 + optional embeddings (`sentence-transformers/all-MiniLM-L6-v2`, `EMBEDDINGS_ENABLED`); top-k chunks with page, heading, score; works (BM25 only) when embeddings disabled; pre-download models at image build
-- [ ] **Internal auth**: every endpoint except health requires `X-Internal-Token` = `ML_INTERNAL_TOKEN`; run as non-root; no public port in prod compose
+- [x] **Internal auth**: every endpoint except health requires `X-Internal-Token` = `ML_INTERNAL_TOKEN`; run as non-root; no public port in prod compose
 
 ### 4.5 Source-Grounded AI Tutor
 - [ ] Provider abstraction `LLMProvider`: `none` (deterministic excerpt), `anthropic`, `openai`-compatible, `ollama`; configure via `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`
