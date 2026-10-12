@@ -13,9 +13,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    networks:
+      - backend-internal
+
   ml:
     build: ./ml
-    ports: ["8000:8000"]
+    environment:
+      ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-dev-internal-token-change-me}
+      OCR_ENABLED: ${OCR_ENABLED:-false}
+      OCR_LANGS: ${OCR_LANGS:-eng}
+      EMBEDDINGS_ENABLED: ${EMBEDDINGS_ENABLED:-false}
+    # No ports published - internal only
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/ml/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["1025:1025", "8025:8025"]
+    networks:
+      - backend-internal
+
   api:
     build: ./backend
     environment:
@@ -23,15 +45,52 @@ services:
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-smart_study}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-change-me}
       ML_SERVICE_URL: http://ml:8000
+      ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-dev-internal-token-change-me}
       JWT_SECRET: ${JWT_SECRET:-replace-with-a-random-secret-at-least-32-bytes}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       UPLOAD_DIR: /data/uploads
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_USERNAME: ""
+      SPRING_MAIL_PASSWORD: ""
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "false"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: "false"
+      APP_REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      APP_ML_INTERNAL_TOKEN: ${ML_INTERNAL_TOKEN:-dev-internal-token-change-me}
+      APP_MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+      APP_USER_STORAGE_QUOTA_MB: ${USER_STORAGE_QUOTA_MB:-500}
     ports: ["8080:8080"]
     volumes: ["uploads:/data/uploads"]
     depends_on:
-      mysql: {condition: service_healthy}
-      ml: {condition: service_started}
+      mysql:
+        condition: service_healthy
+      ml:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - backend-internal
+      - frontend-public
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+      NEXT_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_DEMO_MODE:-false}
+    ports: ["3000:3000"]
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - frontend-public
+
 volumes:
   mysql_data:
   uploads:
+
+networks:
+  backend-internal:
+    driver: bridge
+  frontend-public:
+    driver: bridge

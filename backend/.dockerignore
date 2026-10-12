@@ -1,0 +1,14 @@
+target/
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+.git/
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+*.md
+!src/main/resources/
