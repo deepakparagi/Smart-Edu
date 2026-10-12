@@ -26,9 +26,9 @@
 - [x] Dockerfiles for backend and frontend (multi-stage, non-root, healthcheck, .dockerignore)
 - [x] Flyway V1–V8 apply cleanly on empty MySQL 8.4; add V9+ for new changes
 - [ ] Migration test (empty DB → latest, via Testcontainers)
-- [ ] Seed data (dev profile only): demo student/parent/admin + sample materials
-- [ ] Frontend data layer: typed API client (credentials: include, base URL from env, uniform error parsing, 401→login)
-- [ ] TanStack Query + zod for caching, retries, mutations
+- [x] Seed data (dev profile only): demo student/parent/admin + sample materials
+- [x] Frontend data layer: typed API client (credentials: include, base URL from env, uniform error parsing, 401→login)
+- [x] TanStack Query + zod for caching, retries, mutations
 - [ ] Smoke test full journey by hand + script (`scripts/smoke.sh` + `scripts/smoke.ps1`)
 
 ---
