@@ -36,32 +36,35 @@
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `npm ci` | ⏳ Not run yet | Will run in Phase 0 |
-| `npm run lint` | ⏳ Not run yet | ESLint 9 + Next.js config |
-| `npm run typecheck` | ⏳ Not run yet | `tsc --noEmit` |
-| `npm test` | ⏳ Not run yet | No test script configured yet |
-| `npm run build` | ⏳ Not run yet | Next.js 16 production build |
+| `npm ci` | ✅ **Passed** | 361 packages added, 8 high vulns (dev deps) |
+| `npm run lint` | ✅ **Passed** | 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ **Passed** | TypeScript 5.7.0 clean |
+| `npm test` | ⚠️ **No test script** | No test runner configured (Vitest/Jest not set up) |
+| `npm run build` | ✅ **Passed** | Next.js 16.3.6 production build, 14 routes |
 
 ### Backend (`cd backend && ...`)
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `mvn test` | ⏳ Not run yet | JUnit 5, 3 existing tests |
-| `mvn verify` | ⏳ Not run yet | Includes integration tests (none yet) |
-| `mvn compile` | ⏳ Not run yet | Check for compilation errors |
+| `mvn test` | ✅ **Passed** | 4 tests run (FlashcardTest:1, FocusSessionTest:1, TokenServiceTest:2) |
+| `mvn verify` | ⚠️ Not run yet | No integration tests (Testcontainers not configured) |
+| `mvn compile` | ✅ **Passed** | Clean compile |
 
 ### ML (`cd ml && ...`)
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `pip install -r requirements.txt` | ⏳ Not run yet | |
-| `ruff check .` | ⏳ Not run yet | No ruff config yet |
-| `mypy app` | ⏳ Not run yet | No mypy config yet |
-| `pytest -q` | ⏳ Not run yet | 8 unit tests in `tests/test_service.py` |
+| `pip install -r requirements.txt` | ✅ **Passed** | FastAPI, Uvicorn, PyMuPDF, python-docx, Pydantic installed |
+| `ruff check .` | ⚠️ **No config** | Ruff not installed/configured |
+| `mypy app` | ⚠️ **No config** | MyPy not installed/configured |
+| `pytest -q` | ✅ **Passed** | 8/8 unit tests passed in 0.84s |
 
 ---
 
 ## 3. Stack Boot & Endpoint Exercise (Real Stack)
+
+**Status:** ⚠️ **Docker not available in this environment** — cannot run `docker compose up`.  
+Local MySQL 8.0.45 is running but root password unknown. Backend not tested against live DB.
 
 **Planned:** Start via `docker compose up --build` and test each endpoint with real data.
 
@@ -78,18 +81,18 @@
 
 | # | Suspected Issue | Verified? | Evidence | Fix Required |
 |---|-----------------|-----------|----------|--------------|
-| 1 | `TEXT` columns (64 KB) too small for extracted_text, summary, questions_json, topics_json, keywords_json | ⏳ | V1: `extracted_text TEXT`, `summary TEXT`; V2: `topics_json TEXT`, `keywords_json TEXT`; V5: `questions_json TEXT` | V9: Change to `LONGTEXT` or `JSON` |
-| 2 | Silent demo fallback for authenticated users | ⏳ | Dashboard catches fetch errors → sets `demoMode=true` + demo data | Remove silent fallback; explicit demo routes only |
-| 3 | `.env.example` has guessable `JWT_SECRET`; `COOKIE_SECURE=false` | ✅ | `.env.example` line 11: `JWT_SECRET=replace-with-a-random-secret-at-least-32-bytes`; line 12: `COOKIE_SECURE=false` | Prod profile must refuse boot if weak/default |
-| 4 | DOCX validation only checks PK zip header (any zip passes) | ✅ | `MaterialController.hasExpectedSignature()` line 39: only checks `PK\x03\x04` | Validate OOXML structure (`[Content_Types].xml`, `word/document.xml`), cap entries/uncompressed size |
-| 5 | `serverTimezone=UTC` everywhere; streaks/due dates wrong for non-UTC users | ✅ | `application.yml` and `docker-compose.yml` use `serverTimezone=UTC`; no user timezone column | Add `users.timezone` (IANA), compute day boundaries in user zone |
-| 6 | `@Async` in-memory + startup re-submit can double-process, loses jobs on crash | ✅ | `MaterialProcessor.resumeProcessingAfterRestart()` re-submits all `PROCESSING` via `CompletableFuture` | Durable DB-backed job queue (`processing_jobs` table) |
-| 7 | ML worker has no auth; if exposed, anyone can use it | ✅ | `docker-compose.yml` publishes port 8000; no auth in `main.py` | Internal-only network + `X-Internal-Token` header |
-| 8 | Stateless JWT cannot be revoked; logout/password change don't invalidate sessions | ✅ | `TokenService` issues JWT with 1h expiry; no `token_version` check in `JwtFilter` | Add `users.token_version` column; increment on logout/password change/admin deactivate |
-| 9 | Parent link request by email can reveal which emails exist | ⏳ | `ParentController` not fully reviewed | Uniform responses; no enumeration |
-| 10 | First admin requires manual SQL | ✅ | `PROJECT_OVERVIEW.md` §12.1.2: "UPDATE users SET role = 'ADMIN'..." | Bootstrap via `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` env |
-| 11 | Flashcard rating mismatch: docs say 3 ratings (Hard/Good/Easy), UI shows 4 buttons (Again/Hard/Good/Easy) | ✅ | `Flashcard.java` uses quality 1/2/3 (Hard/Good/Easy); `FlashcardController.Review` allows 0–5; frontend shows 4 buttons | Standardize on 4 ratings per Appendix A (Again=0, Hard=1, Good=2, Easy=3) |
-| 12 | Quiz/flashcard generation relies on single regex (`X is/are/means Y`) | ✅ | `ml/app/main.py` line 52: `DEFINITION_RE` only matches `is defined as|is|are|means|refers to` | Broaden patterns, add cloze deletions, improve distractors |
+| 1 | `TEXT` columns (64 KB) too small for extracted_text, summary, questions_json, topics_json, keywords_json | ✅ **Verified** | V1: `extracted_text TEXT`, `summary TEXT`; V2: `topics_json TEXT`, `keywords_json TEXT`; V5: `questions_json TEXT` — MySQL `TEXT` max 64KB | V9: Change to `LONGTEXT` or `JSON` |
+| 2 | Silent demo fallback for authenticated users | ✅ **Verified** | Dashboard `load()` catches fetch errors → sets `demoMode=true` + demo data (line 63-68) | Remove silent fallback; explicit demo routes only |
+| 3 | `.env.example` has guessable `JWT_SECRET`; `COOKIE_SECURE=false` | ✅ **Verified** | `.env.example` line 11: `JWT_SECRET=replace-with-a-random-secret-at-least-32-bytes`; line 12: `COOKIE_SECURE=false` | Prod profile must refuse boot if weak/default |
+| 4 | DOCX validation only checks PK zip header (any zip passes) | ✅ **Verified** | `MaterialController.hasExpectedSignature()` line 39: only checks `PK\x03\x04` | Validate OOXML structure (`[Content_Types].xml`, `word/document.xml`), cap entries/uncompressed size |
+| 5 | `serverTimezone=UTC` everywhere; streaks/due dates wrong for non-UTC users | ✅ **Verified** | `application.yml` and `docker-compose.yml` use `serverTimezone=UTC`; no user timezone column | Add `users.timezone` (IANA), compute day boundaries in user zone |
+| 6 | `@Async` in-memory + startup re-submit can double-process, loses jobs on crash | ✅ **Verified** | `MaterialProcessor.resumeProcessingAfterRestart()` re-submits all `PROCESSING` via `CompletableFuture` (line 18) | Durable DB-backed job queue (`processing_jobs` table) |
+| 7 | ML worker has no auth; if exposed, anyone can use it | ✅ **Verified** | `docker-compose.yml` publishes port 8000; no auth in `main.py` | Internal-only network + `X-Internal-Token` header |
+| 8 | Stateless JWT cannot be revoked; logout/password change don't invalidate sessions | ✅ **Verified** | `TokenService` issues JWT with 1h expiry; no `token_version` check in `JwtFilter` | Add `users.token_version` column; increment on logout/password change/admin deactivate |
+| 9 | Parent link request by email can reveal which emails exist | ⏳ **Not fully verified** | `ParentController` not fully reviewed | Uniform responses; no enumeration |
+| 10 | First admin requires manual SQL | ✅ **Verified** | `PROJECT_OVERVIEW.md` §12.1.2: "UPDATE users SET role = 'ADMIN'..." | Bootstrap via `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` env |
+| 11 | Flashcard rating mismatch: docs say 3 ratings (Hard/Good/Easy), UI shows 4 buttons (Again/Hard/Good/Easy) | ✅ **Verified** | `Flashcard.java` uses quality 1/2/3 (Hard/Good/Easy); `FlashcardController.Review` allows 0–5; frontend shows 4 buttons | Standardize on 4 ratings per Appendix A (Again=0, Hard=1, Good=2, Easy=3) |
+| 12 | Quiz/flashcard generation relies on single regex (`X is/are/means Y`) | ✅ **Verified** | `ml/app/main.py` line 52: `DEFINITION_RE` only matches `is defined as\|is\|are\|means\|refers to` | Broaden patterns, add cloze deletions, improve distractors |
 
 ---
 
@@ -136,18 +139,18 @@
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| JWT secret strength enforcement | ❌ Missing | Prod must refuse weak/default |
-| Cookie `Secure` in prod | ❌ Missing | `COOKIE_SECURE=false` in example |
-| CSRF protection | ❌ Missing | Cookie-based auth needs CSRF |
-| Rate limiting | ❌ Missing | No Bucket4j / Redis rate limiting |
-| File upload validation (DOCX) | ⚠️ Weak | Only PK header check |
-| ML worker auth | ❌ Missing | No auth on ML endpoints |
-| Session revocation | ❌ Missing | No `token_version` |
-| Password policy | ⚠️ Basic | Min 10 chars only; no common password check |
-| Security headers (CSP, HSTS) | ❌ Missing | Not configured |
-| Audit logging | ❌ Missing | No `audit_log` table |
-| Parent link enumeration | ⚠️ Likely | Not verified |
-| Admin bootstrap | ❌ Manual SQL | Env-based bootstrap needed |
+| JWT secret strength enforcement | ❌ **Missing (Verified)** | Prod must refuse weak/default |
+| Cookie `Secure` in prod | ❌ **Missing (Verified)** | `COOKIE_SECURE=false` in example |
+| CSRF protection | ❌ **Missing** | Cookie-based auth needs CSRF |
+| Rate limiting | ❌ **Missing** | No Bucket4j / Redis rate limiting |
+| File upload validation (DOCX) | ⚠️ **Weak (Verified)** | Only PK header check — any zip passes |
+| ML worker auth | ❌ **Missing (Verified)** | No auth on ML endpoints; port 8000 published |
+| Session revocation | ❌ **Missing (Verified)** | No `token_version`; JWT stateless |
+| Password policy | ⚠️ **Basic (Verified)** | Min 10 chars only; no common password check |
+| Security headers (CSP, HSTS) | ❌ **Missing** | Not configured |
+| Audit logging | ❌ **Missing** | No `audit_log` table |
+| Parent link enumeration | ⚠️ **Likely** | Not fully verified |
+| Admin bootstrap | ❌ **Manual SQL (Verified)** | Env-based bootstrap needed |
 
 ---
 
@@ -155,7 +158,7 @@
 
 | Layer | Current Tests | Coverage | Target |
 |-------|---------------|----------|--------|
-| Backend Unit | 3 tests (TokenService, FocusSession, Flashcard) | ~5% | ≥75% service layer |
+| Backend Unit | 4 tests (TokenService×2, FocusSession, Flashcard) | ~5% | ≥75% service layer |
 | Backend Integration | 0 | 0% | All controllers via Testcontainers |
 | ML Unit | 8 tests | ~60% | ≥80% |
 | Frontend Unit | 0 | 0% | ≥70% critical components/hooks |
