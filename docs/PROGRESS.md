@@ -23,7 +23,7 @@
 - [x] `docker-compose.yml` as single dev entry point (mysql, ml, backend, frontend, mailpit)
 - [x] `depends_on: condition: service_healthy` for all services
 - [x] Complete, commented `.env.example`; document every variable in `docs/ENVIRONMENT.md`
-- [ ] Dockerfiles for backend and frontend (multi-stage, non-root, healthcheck, .dockerignore)
+- [x] Dockerfiles for backend and frontend (multi-stage, non-root, healthcheck, .dockerignore)
 - [x] Flyway V1–V8 apply cleanly on empty MySQL 8.4; add V9+ for new changes
 - [ ] Migration test (empty DB → latest, via Testcontainers)
 - [ ] Seed data (dev profile only): demo student/parent/admin + sample materials
