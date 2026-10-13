@@ -69,6 +69,7 @@ export default function QuizDetail() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -149,9 +150,6 @@ export default function QuizDetail() {
   }
 
   async function handleDeleteThisQuiz() {
-    if (!window.confirm("Are you sure you want to delete this quiz? All associated attempts and scores will also be removed.")) {
-      return;
-    }
     setBusy(true);
     setError("");
     try {
@@ -165,6 +163,7 @@ export default function QuizDetail() {
           throw new Error(res.error || res.message || "Failed to delete quiz.");
         }
       }
+      setShowDeleteModal(false);
       router.push("/quizzes");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete quiz.");
@@ -192,14 +191,14 @@ export default function QuizDetail() {
             <button
               type="button"
               className="button quiet"
-              onClick={handleDeleteThisQuiz}
+              onClick={() => setShowDeleteModal(true)}
               disabled={busy}
               style={{
                 padding: "6px 12px",
                 fontSize: "12px",
                 color: "#ff7070",
-                borderColor: "rgba(255, 112, 112, 0.3)",
-                background: "rgba(255, 70, 70, 0.08)",
+                borderColor: "rgba(255, 112, 112, 0.35)",
+                background: "rgba(255, 70, 70, 0.1)",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "4px",
@@ -251,20 +250,47 @@ export default function QuizDetail() {
             <Sparkles size={13} style={{ display: "inline", marginRight: "6px" }} />
             Active Recall &amp; Assessment
           </p>
-          <h1
-            style={{
-              fontSize: "34px",
-              fontWeight: 800,
-              letterSpacing: "-0.03em",
-              margin: "6px 0 10px",
-              color: "var(--paper)",
-            }}
-          >
-            {quiz?.title ?? "Loading practice quiz..."}
-          </h1>
-          <p style={{ color: "var(--mist)", fontSize: "14px", margin: 0, maxWidth: "680px", lineHeight: 1.6 }}>
-            Select the best option for each question. AI-powered evaluation provides instant accuracy grading and detailed concept explanations.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
+            <div>
+              <h1
+                style={{
+                  fontSize: "34px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  margin: "6px 0 10px",
+                  color: "var(--paper)",
+                }}
+              >
+                {quiz?.title ?? "Loading practice quiz..."}
+              </h1>
+              <p style={{ color: "var(--mist)", fontSize: "14px", margin: 0, maxWidth: "680px", lineHeight: 1.6 }}>
+                Select the best option for each question. AI-powered evaluation provides instant accuracy grading and detailed concept explanations.
+              </p>
+            </div>
+            <button
+              id="delete-current-quiz-btn"
+              type="button"
+              className="button quiet"
+              onClick={handleDeleteThisQuiz}
+              disabled={busy}
+              style={{
+                padding: "8px 14px",
+                fontSize: "12px",
+                color: "#ff7070",
+                borderColor: "rgba(255, 112, 112, 0.35)",
+                background: "rgba(255, 70, 70, 0.08)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                borderRadius: "9px",
+                cursor: "pointer",
+                marginTop: "6px",
+              }}
+              title="Delete this quiz and return to quizzes list"
+            >
+              🗑️ Delete Quiz
+            </button>
+          </div>
         </div>
 
         {error && <p className="form-error" role="alert" style={{ marginBottom: "24px" }}>{error}</p>}
@@ -361,6 +387,23 @@ export default function QuizDetail() {
               >
                 <ArrowLeft size={15} /> All Quizzes
               </Link>
+              <button
+                type="button"
+                className="button quiet"
+                onClick={handleDeleteThisQuiz}
+                disabled={busy}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "#ff7070",
+                  borderColor: "rgba(255, 112, 112, 0.35)",
+                  background: "rgba(255, 70, 70, 0.08)",
+                }}
+                title="Delete this quiz and its recorded attempts"
+              >
+                🗑️ Delete Quiz
+              </button>
             </div>
 
             {/* Section Header */}
@@ -733,6 +776,103 @@ export default function QuizDetail() {
           </section>
         )}
       </section>
+
+      {/* Confirmation Modal for Quiz Delete */}
+      {showDeleteModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: "16px",
+          }}
+          onClick={() => !busy && setShowDeleteModal(false)}
+        >
+          <div
+            style={{
+              background: "#101614",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              borderRadius: "18px",
+              width: "100%",
+              maxWidth: "460px",
+              padding: "26px",
+              boxShadow: "0 24px 48px rgba(0, 0, 0, 0.7)",
+              color: "#e2e8f0",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" }}>
+              <div
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "12px",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  flexShrink: 0,
+                }}
+              >
+                🗑️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "#fff" }}>
+                  Delete This Quiz?
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#94a3b8" }}>
+                  Permanent action — cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.95rem", lineHeight: 1.5, color: "#cbd5e1", margin: "16px 0 24px" }}>
+              Are you sure you want to delete <strong style={{ color: "#fff" }}>&ldquo;{quiz?.title || "this quiz"}&rdquo;</strong>?
+              All associated question sets, attempts, scores, and mastery stats will be permanently removed.
+            </p>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="button quiet"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={busy}
+                style={{ padding: "10px 18px", borderRadius: "10px", fontSize: "0.9rem" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteThisQuiz()}
+                disabled={busy}
+                style={{
+                  padding: "10px 22px",
+                  borderRadius: "10px",
+                  fontSize: "0.9rem",
+                  fontWeight: 700,
+                  background: "#ef4444",
+                  border: "none",
+                  color: "#fff",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  boxShadow: "0 4px 14px rgba(239, 68, 68, 0.4)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                {busy ? "Deleting..." : "Yes, Delete Quiz"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
     </>
   );

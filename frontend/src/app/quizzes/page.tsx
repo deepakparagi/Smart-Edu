@@ -26,6 +26,13 @@ export default function QuizzesPage() {
   const [uploading, setUploading] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
 
+  // Deletion modal state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "material" | "quiz";
+    id: number;
+    title: string;
+  } | null>(null);
+
   // Topic input state
   const [topicInput, setTopicInput] = useState("");
   const [questionCount, setQuestionCount] = useState(5);
@@ -305,14 +312,7 @@ export default function QuizzesPage() {
   }
 
   // Delete a saved quiz
-  async function deleteQuiz(quizId: number, event?: React.MouseEvent) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    if (!window.confirm("Are you sure you want to delete this quiz? All associated attempts and scores will also be removed.")) {
-      return;
-    }
+  async function deleteQuiz(quizId: number) {
     setBusy(`delete-quiz-${quizId}`);
     setError("");
     setNotice("");
@@ -328,6 +328,7 @@ export default function QuizzesPage() {
         }
       }
       setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
+      setDeleteTarget(null);
       setNotice("Quiz deleted successfully.");
       setTimeout(() => setNotice(""), 4000);
     } catch (err: unknown) {
@@ -338,14 +339,7 @@ export default function QuizzesPage() {
   }
 
   // Delete an uploaded study note
-  async function deleteMaterial(materialId: number, event?: React.MouseEvent) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    if (!window.confirm("Are you sure you want to delete this study note? Associated quizzes and flashcards will also be deleted.")) {
-      return;
-    }
+  async function deleteMaterial(materialId: number) {
     setBusy(`delete-mat-${materialId}`);
     setError("");
     setNotice("");
@@ -362,6 +356,7 @@ export default function QuizzesPage() {
       }
       setMaterials((prev) => prev.filter((m) => m.id !== materialId));
       setQuizzes((prev) => prev.filter((q) => q.materialId !== materialId));
+      setDeleteTarget(null);
       setNotice("Study note deleted successfully.");
       setTimeout(() => setNotice(""), 4000);
     } catch (err: unknown) {
@@ -628,17 +623,22 @@ export default function QuizzesPage() {
                     <button
                       type="button"
                       className="button quiet"
-                      onClick={(e) => void deleteMaterial(material.id, e)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeleteTarget({ type: "material", id: material.id, title: material.title });
+                      }}
                       disabled={busy === `delete-mat-${material.id}`}
                       style={{
-                        padding: "7px 11px",
+                        padding: "7px 12px",
                         fontSize: "12px",
                         color: "#ff7070",
-                        borderColor: "rgba(255, 112, 112, 0.3)",
-                        background: "rgba(255, 70, 70, 0.08)",
+                        borderColor: "rgba(255, 112, 112, 0.35)",
+                        background: "rgba(255, 70, 70, 0.1)",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "4px",
+                        cursor: "pointer",
                       }}
                       title="Delete this study note"
                     >
@@ -682,17 +682,22 @@ export default function QuizzesPage() {
                     <button
                       type="button"
                       className="button quiet"
-                      onClick={(e) => void deleteQuiz(quiz.id, e)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeleteTarget({ type: "quiz", id: quiz.id, title: quiz.title });
+                      }}
                       disabled={busy === `delete-quiz-${quiz.id}`}
                       style={{
-                        padding: "6px 11px",
+                        padding: "6px 12px",
                         fontSize: "12px",
                         color: "#ff7070",
-                        borderColor: "rgba(255, 112, 112, 0.3)",
-                        background: "rgba(255, 70, 70, 0.08)",
+                        borderColor: "rgba(255, 112, 112, 0.35)",
+                        background: "rgba(255, 70, 70, 0.1)",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "4px",
+                        cursor: "pointer",
                       }}
                       title="Delete this quiz"
                     >
@@ -925,6 +930,111 @@ export default function QuizzesPage() {
                 style={{ fontSize: "12px" }}
               >
                 Save &amp; Connect Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Confirmation Modal for Delete (Never blocked by browser popup settings) */}
+      {deleteTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: "16px",
+          }}
+          onClick={() => !busy && setDeleteTarget(null)}
+        >
+          <div
+            style={{
+              background: "#101614",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              borderRadius: "18px",
+              width: "100%",
+              maxWidth: "460px",
+              padding: "26px",
+              boxShadow: "0 24px 48px rgba(0, 0, 0, 0.7)",
+              color: "#e2e8f0",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" }}>
+              <div
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "12px",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  flexShrink: 0,
+                }}
+              >
+                🗑️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "#fff" }}>
+                  {deleteTarget.type === "material" ? "Delete Study Note?" : "Delete Quiz?"}
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#94a3b8" }}>
+                  Permanent action — cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.95rem", lineHeight: 1.5, color: "#cbd5e1", margin: "16px 0 24px" }}>
+              Are you sure you want to delete <strong style={{ color: "#fff" }}>&ldquo;{deleteTarget.title}&rdquo;</strong>?
+              {deleteTarget.type === "material"
+                ? " All associated practice quizzes, attempts, and flashcards derived from this note will also be permanently removed."
+                : " All associated attempts, scores, and analytics for this quiz will also be permanently removed."}
+            </p>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="button quiet"
+                onClick={() => setDeleteTarget(null)}
+                disabled={Boolean(busy)}
+                style={{ padding: "10px 18px", borderRadius: "10px", fontSize: "0.9rem" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteTarget.type === "material") {
+                    void deleteMaterial(deleteTarget.id);
+                  } else {
+                    void deleteQuiz(deleteTarget.id);
+                  }
+                }}
+                disabled={Boolean(busy)}
+                style={{
+                  padding: "10px 22px",
+                  borderRadius: "10px",
+                  fontSize: "0.9rem",
+                  fontWeight: 700,
+                  background: "#ef4444",
+                  border: "none",
+                  color: "#fff",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  boxShadow: "0 4px 14px rgba(239, 68, 68, 0.4)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                {busy ? "Deleting..." : "Yes, Delete"}
               </button>
             </div>
           </div>
