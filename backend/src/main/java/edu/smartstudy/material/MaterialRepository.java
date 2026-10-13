@@ -23,4 +23,6 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
     Page<Material> searchByOwnerAndQuery(@Param("ownerId") Long ownerId, @Param("query") String query, Pageable pageable);
 
     List<Material> findByOwnerIdAndStatusIn(Long ownerId, List<String> statuses);
+    List<Material> findTop50ByOrderByCreatedAtDesc();
+    long countByOwnerId(Long ownerId);
 }

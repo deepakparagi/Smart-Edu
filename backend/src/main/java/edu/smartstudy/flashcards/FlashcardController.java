@@ -25,13 +25,18 @@ public class FlashcardController {
 
     public FlashcardController(FlashcardRepository cards, FlashcardReviewRepository reviews,
                                MaterialRepository materials, UserRepository users,
-                               ObjectMapper json, @Value("${app.ml-url}") String mlUrl) {
+                               ObjectMapper json,
+                               @Value("${app.ml-url}") String mlUrl,
+                               @Value("${app.ml-internal-token}") String mlInternalToken) {
         this.cards = cards;
         this.reviews = reviews;
         this.materials = materials;
         this.users = users;
         this.json = json;
-        this.ml = RestClient.builder().baseUrl(mlUrl).build();
+        this.ml = RestClient.builder()
+                .baseUrl(mlUrl)
+                .defaultHeader("X-Internal-Token", mlInternalToken)
+                .build();
     }
 
     private Long owner(Authentication a) {
@@ -52,11 +57,17 @@ public class FlashcardController {
     ) {}
 
     public record Review(
-            @Min(0) @Max(3) int quality
+            @Min(0) @Max(5) int quality
     ) {}
 
     public record MaterialRequest(
             @Positive Long materialId
+    ) {}
+
+    public record GenerateRequest(
+            Long materialId,
+            String topic,
+            Integer count
     ) {}
 
     @GetMapping
@@ -128,40 +139,104 @@ public class FlashcardController {
     }
 
     @PostMapping("/generate")
-    public ResponseEntity<?> generate(@RequestBody @Valid MaterialRequest input, Authentication a) throws Exception {
+    public ResponseEntity<?> generate(
+            @RequestBody GenerateRequest input,
+            @RequestHeader(value = "X-Groq-Api-Key", required = false) String clientGroqApiKey,
+            Authentication a
+    ) throws Exception {
         Long student = owner(a);
-        Material m = materials.findByIdAndOwnerId(input.materialId(), student).orElse(null);
-        if (m == null) return ResponseEntity.notFound().build();
-        if (!"COMPLETED".equals(m.getStatus()) || m.getExtractedText() == null) {
-            return ResponseEntity.status(409).body(Map.of("error", "Wait until this material has finished processing."));
+
+        String topicName = input.topic() != null ? input.topic().trim() : "";
+        Long targetMaterialId = input.materialId();
+        Material material = null;
+
+        if (targetMaterialId != null && targetMaterialId > 0) {
+            material = materials.findByIdAndOwnerId(targetMaterialId, student).orElse(null);
+            if (material == null) return ResponseEntity.notFound().build();
+            if (!"COMPLETED".equals(material.getStatus()) || material.getExtractedText() == null) {
+                return ResponseEntity.status(409).body(Map.of("error", "Wait until this material has finished processing."));
+            }
+        } else if (!topicName.isBlank()) {
+            final String finalTopicName = topicName;
+            material = materials.findTop100ByOwnerIdOrderByCreatedAtDesc(student).stream()
+                    .filter(m -> finalTopicName.equalsIgnoreCase(m.getTitle()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        String cleanSlug = finalTopicName.toLowerCase().replaceAll("[^a-z0-9]+", "-");
+                        Material newMat = new Material(
+                                student,
+                                finalTopicName,
+                                cleanSlug + ".txt",
+                                "topic-" + UUID.randomUUID(),
+                                "text/plain",
+                                (long) finalTopicName.length()
+                        );
+                        newMat.complete("Flashcard study topic for: " + finalTopicName, "Topic summary", "[]", "[]");
+                        return materials.save(newMat);
+                    });
+            targetMaterialId = material.getId();
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Please provide either a study material or a topic to generate flashcards."));
         }
-        Map<?, ?> response = ml.post()
-                .uri("/ml/v1/flashcards")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("text", m.getExtractedText()))
-                .retrieve()
-                .body(Map.class);
+
+        Map<String, Object> mlReq = new HashMap<>();
+        if (!topicName.isBlank()) {
+            mlReq.put("topic", topicName);
+            if (material != null && material.getExtractedText() != null && material.getExtractedText().length() > 80) {
+                mlReq.put("text", material.getExtractedText());
+            }
+        } else if (material != null) {
+            mlReq.put("topic", material.getTitle());
+            if (material.getExtractedText() != null) {
+                mlReq.put("text", material.getExtractedText());
+            }
+        }
+        mlReq.put("count", input.count() != null ? input.count() : 6);
+        if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
+            mlReq.put("api_key", clientGroqApiKey.trim());
+        }
+
+        Map<?, ?> response;
+        try {
+            var postBuilder = ml.post().uri("/ml/v1/flashcards")
+                    .contentType(MediaType.APPLICATION_JSON);
+            if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
+                postBuilder.header("X-Groq-Api-Key", clientGroqApiKey.trim());
+            }
+            response = postBuilder.body(mlReq).retrieve().body(Map.class);
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("error", "The flashcard generation service is temporarily unavailable."));
+        }
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> generated = (List<Map<String, Object>>) response.get("flashcards");
         List<Flashcard> saved = new ArrayList<>();
+        final Long finalMaterialId = material.getId();
         if (generated != null) {
             for (var c : generated) {
-                String front = Objects.toString(c.get("front"), "");
-                if (front.isBlank() || cards.existsByOwnerIdAndMaterialIdAndFrontIgnoreCase(student, m.getId(), front)) {
+                String front = Objects.toString(c.get("front"), "").trim();
+                String back = Objects.toString(c.get("back"), "").trim();
+                if (front.isBlank() || back.isBlank()) {
+                    continue;
+                }
+                if (cards.existsByOwnerIdAndMaterialIdAndFrontIgnoreCase(student, finalMaterialId, front)) {
                     continue;
                 }
                 saved.add(cards.save(new Flashcard(
                         student,
-                        m.getId(),
+                        finalMaterialId,
                         front,
-                        Objects.toString(c.get("back"), ""),
-                        Objects.toString(c.get("source_reference"), "document")
+                        back,
+                        Objects.toString(c.get("source_reference"), !topicName.isBlank() ? topicName : "document")
                 )));
             }
         }
         if (saved.isEmpty()) {
-            return ResponseEntity.status(422).body(Map.of("error", Objects.toString(response.get("notice"), "No definition cards were found.")));
+            List<Flashcard> existing = cards.findByOwnerIdAndMaterialIdOrderByNextReviewAsc(student, finalMaterialId);
+            if (!existing.isEmpty()) {
+                return ResponseEntity.ok(existing);
+            }
+            return ResponseEntity.status(422).body(Map.of("error", Objects.toString(response.get("notice"), "No cards could be generated.")));
         }
         return ResponseEntity.status(201).body(saved);
     }

@@ -18,4 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByValidPasswordResetToken(@Param("tokenHash") String tokenHash);
 
     List<User> findByRoleAndEnabledTrue(String role);
+    List<User> findByRoleOrderByCreatedAtDesc(String role);
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY u.createdAt DESC")
+    List<User> searchUsers(@Param("query") String query);
 }

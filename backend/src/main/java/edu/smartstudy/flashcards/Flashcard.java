@@ -84,8 +84,9 @@ public class Flashcard {
      * SM-2 variant with 4 ratings (Appendix A):
      * quality: 0=Again, 1=Hard, 2=Good, 3=Easy
      */
-    public void review(@Min(0) @Max(3) int quality) {
+    public void review(@Min(0) @Max(5) int inputQuality) {
         LocalDate today = LocalDate.now();
+        int quality = inputQuality > 3 ? (inputQuality == 5 ? 3 : 2) : inputQuality;
 
         if (quality == 0) { // Again
             reviewCount = 0;

@@ -198,6 +198,12 @@ button { color: inherit; }
 .glass, .glass-card, .glass-tile { border: 1px solid var(--line); background: rgba(255,255,255,.045); box-shadow: 0 18px 42px rgba(0,0,0,.17); backdrop-filter: blur(15px); }
 .brutal, .brutal-card { border: 1px solid var(--lime); box-shadow: 5px 5px 0 rgba(196,255,106,.7); }
 
+@media (max-width: 980px) {
+  .desktop-nav { display: none !important; }
+  .mobile-nav-toggle { display: inline-flex !important; }
+  .logout-text { display: none; }
+}
+
 @media (max-width: 960px) {
   .landing-stage { grid-template-columns: 1fr; padding-top: 68px; }.landing-copy { max-width: 680px; }.landing-art { width: min(100%, 630px); min-height: 425px; margin: 0 auto; }.hero-device { right: 8%; }.auth-shell { grid-template-columns: 1fr; gap: 8px; padding-block: 55px; }.auth-story { min-height: auto; }.auth-story-orbit { display: none; }.auth-card { max-width: 560px; width: 100%; }.dashboard-metrics, .metric-grid { grid-template-columns: repeat(2, 1fr); }.workspace { grid-template-columns: 218px minmax(0, 1fr); }.tutor-layout { grid-template-columns: 220px minmax(0, 1fr); }
 }
@@ -213,3 +219,50 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* AI Tutor chat styling */
+.chat-code-block {
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(132, 229, 188, 0.2);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #a7f3d0;
+  position: relative;
+}
+.code-lang-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--mint);
+  opacity: 0.7;
+  margin-bottom: 4px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.chat-h2 {
+  font-size: 16px;
+  color: var(--paper);
+  margin: 14px 0 6px;
+  font-weight: 700;
+}
+.chat-h3 {
+  font-size: 14px;
+  color: var(--mint);
+  margin: 12px 0 4px;
+  font-weight: 600;
+}
+.chat-h4 {
+  font-size: 13px;
+  color: var(--paper);
+  margin: 10px 0 4px;
+  font-weight: 600;
+}
+.chat-li {
+  margin-left: 18px;
+  list-style-type: disc;
+  margin-block: 3px;
+}
+

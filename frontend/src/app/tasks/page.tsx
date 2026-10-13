@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { demoPlan, demoTasks } from "../demo-data";
+import { Navbar } from "../navbar";
 
 type Task = {
   id: number;
@@ -195,17 +196,10 @@ export default function TasksPage() {
   const completed = tasks.filter((task) => task.status === "COMPLETED").length;
 
   return (
-    <main className="task-page">
-      <header className="task-header">
-        <Link className="brand" href="/dashboard">
-          <span className="brand-mark">S</span> smart study
-        </Link>
-        <Link className="back-link" href="/dashboard">
-          Back to dashboard
-        </Link>
-      </header>
-
-      <section className="task-content">
+    <>
+      <Navbar />
+      <main className="task-page">
+        <section className="task-content">
         {demoMode && (
           <div className="demo-banner">
             <strong>Preview mode</strong>
@@ -343,5 +337,6 @@ export default function TasksPage() {
         </details>
       </section>
     </main>
+    </>
   );
 }

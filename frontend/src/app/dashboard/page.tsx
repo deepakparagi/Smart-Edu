@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { demoMaterials, demoTasks } from "../demo-data";
+import { Navbar } from "../navbar";
 
 type Me = { name: string; email: string; role: string };
 type ParentRequest = { id: number; parent: { name: string; email: string }; createdAt: string };
@@ -56,10 +57,18 @@ export default function Dashboard() {
       const user = (await userResponse.json()) as Me;
       setMe(user);
       if (user.role === "STUDENT") {
-        const requestsResponse = await fetch(API + "/parents/requests", { credentials: "include" });
-        if (requestsResponse.ok) setParentRequests(await requestsResponse.json());
+        const requestsResponse = await fetch(API + "/parents/links/pending", { credentials: "include" })
+          .catch(() => null);
+        if (requestsResponse && requestsResponse.ok) {
+          const raw = await requestsResponse.json();
+          setParentRequests(Array.isArray(raw) ? raw : (raw?.content ?? []));
+        }
       }
-      setMaterials(await materialsResponse.json());
+      const rawMaterials = await materialsResponse.json();
+      const materialList: Material[] = Array.isArray(rawMaterials)
+        ? rawMaterials
+        : (rawMaterials?.content ?? []);
+      setMaterials(materialList);
     } catch {
       setDemoMode(true);
       setMe({ name: "Alex Morgan", email: "alex@example.test", role: "STUDENT" });
@@ -75,16 +84,19 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  const processing = materials.some((material) => material.status === "PROCESSING");
+  const processing = Array.isArray(materials) && materials.some((material) => material.status === "PROCESSING");
   useEffect(() => {
     if (!processing) return;
     const timer = setInterval(() => {
       void fetch(API + "/materials", { credentials: "include" })
         .then((response) => {
           if (!response.ok) throw new Error("Could not refresh processing status.");
-          return response.json() as Promise<Material[]>;
+          return response.json();
         })
-        .then(setMaterials)
+        .then((raw) => {
+          const list: Material[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
+          setMaterials(list);
+        })
         .catch((cause: unknown) => {
           setError(cause instanceof Error ? cause.message : "Could not refresh processing status.");
         });
@@ -146,9 +158,10 @@ export default function Dashboard() {
         method: "POST",
         credentials: "include",
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Retry failed.");
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || result.message || "Retry failed.");
       setMaterials((current) => current.map((material) => (material.id === id ? (result as Material) : material)));
+      setTimeout(() => void load(), 1500);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Retry failed.");
     }
@@ -176,30 +189,11 @@ export default function Dashboard() {
   const upcomingTasks = demoTasks.filter((task) => task.status === "PENDING").slice(0, 2);
 
   return (
-    <div className="workspace">
-      <aside className="sidebar">
-        <Link className="brand" href="/">
-          <span className="brand-mark">S</span>
-          <span>smart study</span>
-        </Link>
-
-        <nav>
-          {navigation.map(({ href, label }) => (
-            <Link key={href} href={href} className={href === "/dashboard" ? "nav-active" : ""}>
-              {label}
-            </Link>
-          ))}
-          {me?.role === "PARENT" && <Link href="/parent">Parent portal</Link>}
-          {me?.role === "ADMIN" && <Link href="/admin">Administration</Link>}
-        </nav>
-
-        <button className="logout" onClick={() => void logout()}>
-          Sign out
-        </button>
-      </aside>
-
-      <section className="dash-main">
-        <header className="dash-header">
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Navbar />
+      <main style={{ flex: 1, minHeight: "calc(100vh - 64px)", background: "linear-gradient(135deg, rgba(24,45,35,.14), transparent 38%), var(--ink-deep)" }}>
+        <section className="dash-main">
+          <header className="dash-header">
           <div>
             <p className="eyebrow">Student dashboard</p>
             <h1>Welcome, {firstName}.</h1>
@@ -339,6 +333,7 @@ export default function Dashboard() {
           )}
         </section>
       </section>
-    </div>
-  );
+    </main>
+  </div>
+);
 }

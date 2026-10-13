@@ -5,19 +5,21 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.HttpHeaders;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class MaterialProcessor {
     private final MaterialRepository materials;
     private final MaterialChunkRepository chunkRepo;
-    private final RestClient ml;
-    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final WebClient ml;
+    private final ObjectMapper json;
     private final Path uploadDir;
     private final String mlInternalToken;
 
@@ -25,10 +27,13 @@ public class MaterialProcessor {
                              @Value("${app.ml-url}") String mlUrl,
                              @Value("${app.ml-internal-token}") String mlInternalToken,
                              @Value("${app.upload-dir}") String dir,
-                             com.fasterxml.jackson.databind.ObjectMapper json) {
+                             ObjectMapper json) {
         this.materials = materials;
         this.chunkRepo = chunkRepo;
-        this.ml = RestClient.builder().baseUrl(mlUrl).defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + mlInternalToken).build();
+        this.ml = WebClient.builder()
+                .baseUrl(mlUrl)
+                .defaultHeader("X-Internal-Token", mlInternalToken)
+                .build();
         this.json = json;
         this.uploadDir = Path.of(dir).toAbsolutePath().normalize();
         this.mlInternalToken = mlInternalToken;
@@ -49,19 +54,29 @@ public class MaterialProcessor {
         Material material = materials.findById(id).orElse(null);
         if (material == null) return;
         try {
-            var multipart = new LinkedMultiValueMap<String, Object>();
-            multipart.add("file", new FileSystemResource(file) {
-                @Override
-                public String getFilename() { return material.getFileName(); }
-            });
+            String fileName = material.getFileName();
+            byte[] fileBytes = java.nio.file.Files.readAllBytes(file);
 
-            // Extract text and chunks
+            System.err.println("[MaterialProcessor] Uploading file: " + fileName + " from path: " + file);
+            System.err.println("[MaterialProcessor] File size: " + fileBytes.length);
+
+            // Extract text and chunks using WebClient
+            MultipartBodyBuilder builder = new MultipartBodyBuilder();
+            builder.part("file", new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return fileName;
+                }
+            }).filename(fileName);
+
             Map<?, ?> extracted = ml.post()
                     .uri("/ml/v1/extract")
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(multipart)
+                    .body(BodyInserters.fromMultipartData(builder.build()))
                     .retrieve()
-                    .body(Map.class);
+                    .bodyToMono(Map.class)
+                    .block();
+
+            System.err.println("[MaterialProcessor] Extract response: " + extracted);
 
             String text = Objects.toString(extracted.get("text"), "");
 
@@ -76,25 +91,28 @@ public class MaterialProcessor {
             Map<?, ?> summary = ml.post()
                     .uri("/ml/v1/summarize")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("text", text))
+                    .bodyValue(Map.of("text", text))
                     .retrieve()
-                    .body(Map.class);
+                    .bodyToMono(Map.class)
+                    .block();
 
             // Topics
             Map<?, ?> topics = ml.post()
                     .uri("/ml/v1/topics")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("text", text))
+                    .bodyValue(Map.of("text", text))
                     .retrieve()
-                    .body(Map.class);
+                    .bodyToMono(Map.class)
+                    .block();
 
             // Keywords
             Map<?, ?> keywords = ml.post()
                     .uri("/ml/v1/keywords")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("text", text))
+                    .bodyValue(Map.of("text", text))
                     .retrieve()
-                    .body(Map.class);
+                    .bodyToMono(Map.class)
+                    .block();
 
             material.complete(text,
                     Objects.toString(summary.get("summary"), ""),
@@ -102,6 +120,8 @@ public class MaterialProcessor {
                     json.writeValueAsString(keywords.get("keywords")));
             materials.save(material);
         } catch (Exception e) {
+            System.err.println("[MaterialProcessor] Error processing material " + id + ": " + e.getMessage());
+            e.printStackTrace(System.err);
             material.fail("Processing could not be completed: " + e.getMessage());
             materials.save(material);
         }

@@ -16,3 +16,4 @@ docs/*.md
 !docs/HUMAN_ACTIONS.md
 !docs/AUDIT.md
 !docs/ENVIRONMENT.md
+.vscode/

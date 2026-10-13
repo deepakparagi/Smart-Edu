@@ -29,7 +29,8 @@
 - [x] Seed data (dev profile only): demo student/parent/admin + sample materials
 - [x] Frontend data layer: typed API client (credentials: include, base URL from env, uniform error parsing, 401→login)
 - [x] TanStack Query + zod for caching, retries, mutations
-- [ ] Smoke test full journey by hand + script (`scripts/smoke.sh` + `scripts/smoke.ps1`)
+- [x] Smoke test full journey by hand and browser automation (`docs/QA_TEST_REPORT.md`)
+- [x] Comprehensive End-to-End Issue Audit and Resolution (`docs/ISSUE_TRACKER.md`)
 
 ---
 

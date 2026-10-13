@@ -2,7 +2,7 @@ server:
   port: 8080
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/smart_study?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/smart_study?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:smart_study}
     password: ${SPRING_DATASOURCE_PASSWORD:change-me}
   jpa:
@@ -41,7 +41,7 @@ app:
   cookie-secure: ${COOKIE_SECURE:false}
   web-origin: ${WEB_ORIGIN:http://localhost:3000}
   require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:false}
-  ml-internal-token: ${ML_INTERNAL_TOKEN:}
+  ml-internal-token: ${ML_INTERNAL_TOKEN:dev-internal-token-change-me}
   bootstrap-admin-email: ${BOOTSTRAP_ADMIN_EMAIL:}
   bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
   storage-backend: ${STORAGE_BACKEND:local}

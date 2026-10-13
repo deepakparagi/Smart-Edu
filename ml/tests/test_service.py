@@ -29,13 +29,28 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(len(result["matches"]),1)
         self.assertIn("Photosynthesis",result["matches"][0]["text"])
     def test_question_and_card_generation_uses_explicit_definitions(self):
-        from app.main import flashcards, questions
+        from app.main import flashcards, questions, FlashcardsRequest, QuestionsRequest
         source="Photosynthesis is the process by which plants convert light into chemical energy. Respiration is the process organisms use to release energy from food."
-        cards=flashcards(TextInput(text=source))["flashcards"]
-        quiz=questions(TextInput(text=source))["questions"]
+        cards=flashcards(FlashcardsRequest(text=source))["flashcards"]
+        quiz=questions(QuestionsRequest(text=source))["questions"]
         self.assertGreaterEqual(len(cards),2)
         self.assertEqual(len(quiz),2)  # One question per definition pair
         self.assertIn(quiz[0]["correct_answer"], quiz[0]["options"])
+
+    def test_question_generation_by_topic(self):
+        from app.main import questions, QuestionsRequest
+        quiz = questions(QuestionsRequest(topic="Operating Systems", count=3))["questions"]
+        self.assertEqual(len(quiz), 3)
+        self.assertIn("Operating Systems", quiz[0]["question"])
+        self.assertEqual(len(quiz[0]["options"]), 4)
+        self.assertEqual(quiz[0]["correct_index"], 0)
+
+    def test_flashcard_generation_by_topic(self):
+        from app.main import flashcards, FlashcardsRequest
+        cards = flashcards(FlashcardsRequest(topic="Database Systems", count=4))["flashcards"]
+        self.assertEqual(len(cards), 4)
+        self.assertIn("Database Systems", cards[0]["front"])
+
     @staticmethod
     def run_async(awaitable):
         import asyncio
