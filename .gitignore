@@ -5,6 +5,8 @@ target/
 __pycache__/
 .venv/
 .env
+.env*.local
+.env.local
 *.log
 uploads/
 backend/.m2/

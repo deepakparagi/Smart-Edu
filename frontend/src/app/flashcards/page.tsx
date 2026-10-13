@@ -14,6 +14,7 @@ import {
   Clock,
   Layers,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 import { demoFlashcards, demoMaterials } from "../demo-data";
 import { Navbar } from "../navbar";
@@ -28,6 +29,77 @@ type Card = {
   reviewCount: number;
   intervalDays: number;
 };
+
+function renderCardContent(front: string, back: string, isRevealed: boolean) {
+  const clozeRegex = /\{\{\s*c\d+::(.*?)(?:::.*?)?\s*\}\}/g;
+  const hasCloze = clozeRegex.test(front);
+
+  if (hasCloze) {
+    if (!isRevealed) {
+      const parts = front.split(/(\{\{\s*c\d+::.*?\s*\}\})/g);
+      return (
+        <span style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+          {parts.map((part, i) => {
+            const match = part.match(/\{\{\s*c\d+::(.*?)(?:::.*?)?\s*\}\}/);
+            if (match) {
+              return (
+                <span key={i} className="cloze-blank">
+                  [ ... ]
+                </span>
+              );
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </span>
+      );
+    } else {
+      const parts = front.split(/(\{\{\s*c\d+::.*?\s*\}\})/g);
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", width: "100%" }}>
+          <span style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+            {parts.map((part, i) => {
+              const match = part.match(/\{\{\s*c\d+::(.*?)(?:::.*?)?\s*\}\}/);
+              if (match) {
+                return (
+                  <mark key={i} className="cloze-revealed">
+                    {match[1]}
+                  </mark>
+                );
+              }
+              return <span key={i}>{part}</span>;
+            })}
+          </span>
+          {back && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 18px",
+                borderRadius: "12px",
+                background: "rgba(196, 255, 106, 0.1)",
+                border: "1px solid rgba(196, 255, 106, 0.35)",
+                color: "var(--lime)",
+                fontSize: "15px",
+                fontWeight: 700,
+              }}
+            >
+              <span>Target:</span>
+              <span>{back}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+
+  // Standard Q&A card
+  return (
+    <span style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+      {isRevealed ? back : front}
+    </span>
+  );
+}
 
 type Material = {
   id: number;
@@ -50,6 +122,44 @@ export default function FlashcardsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
 
+const DEFAULT_OPENROUTER_KEY =
+  process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
+
+  // OpenRouter API Key State (defaults to configured key)
+  const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("openrouter_api_key");
+      if (stored && stored.trim().length > 0) return stored.trim();
+      try {
+        localStorage.setItem("openrouter_api_key", DEFAULT_OPENROUTER_KEY);
+      } catch {}
+      return DEFAULT_OPENROUTER_KEY;
+    }
+    return DEFAULT_OPENROUTER_KEY;
+  });
+  const [showKeyModal, setShowKeyModal] = useState<boolean>(false);
+  const [keyInput, setKeyInput] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("openrouter_api_key");
+      if (stored && stored.trim().length > 0) return stored.trim();
+      return DEFAULT_OPENROUTER_KEY;
+    }
+    return DEFAULT_OPENROUTER_KEY;
+  });
+
+  const saveOpenRouterKey = () => {
+    const clean = keyInput.trim();
+    setOpenRouterKey(clean);
+    if (typeof window !== "undefined") {
+      if (clean) {
+        localStorage.setItem("openrouter_api_key", clean);
+      } else {
+        localStorage.removeItem("openrouter_api_key");
+      }
+    }
+    setShowKeyModal(false);
+  };
+
   const load = useCallback(async () => {
     try {
       const [cRes, mRes] = await Promise.all([
@@ -57,7 +167,7 @@ export default function FlashcardsPage() {
         fetch(`${API}/materials`, { credentials: "include" }),
       ]);
 
-      if (cRes.status === 401) {
+      if (cRes.status === 401 || cRes.status === 403) {
         router.push("/login");
         return;
       }
@@ -126,9 +236,9 @@ export default function FlashcardsPage() {
         return;
       }
 
-      const groqKey = typeof window !== "undefined" ? localStorage.getItem("groq_api_key") : null;
+      const openRouterKey = typeof window !== "undefined" ? localStorage.getItem("openrouter_api_key") : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (groqKey) headers["X-Groq-Api-Key"] = groqKey;
+      if (openRouterKey) headers["X-OpenRouter-Api-Key"] = openRouterKey;
 
       const response = await fetch(`${API}/flashcards/generate`, {
         method: "POST",
@@ -172,9 +282,9 @@ export default function FlashcardsPage() {
         return;
       }
 
-      const groqKey = typeof window !== "undefined" ? localStorage.getItem("groq_api_key") : null;
+      const openRouterKey = typeof window !== "undefined" ? localStorage.getItem("openrouter_api_key") : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (groqKey) headers["X-Groq-Api-Key"] = groqKey;
+      if (openRouterKey) headers["X-OpenRouter-Api-Key"] = openRouterKey;
 
       const response = await fetch(`${API}/flashcards/generate`, {
         method: "POST",
@@ -243,6 +353,29 @@ export default function FlashcardsPage() {
     }
   }
 
+  async function deleteCard(cardId: number) {
+    if (demoMode) {
+      setCards((curr) => curr.filter((c) => c.id !== cardId));
+      if (index >= cards.length - 1) setIndex(Math.max(0, cards.length - 2));
+      return;
+    }
+    try {
+      const resp = await fetch(`${API}/flashcards/${cardId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (resp.ok) {
+        setCards((curr) => curr.filter((c) => c.id !== cardId));
+        if (index >= cards.length - 1) {
+          setIndex(Math.max(0, cards.length - 2));
+        }
+        setNotice("Card removed from your deck.");
+      }
+    } catch {
+      setError("Could not delete flashcard.");
+    }
+  }
+
   // SM-2 Review submission
   async function review(quality: number) {
     const card = cards[index];
@@ -305,16 +438,43 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        <div style={{ marginBottom: "24px" }}>
-          <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Layers size={14} /> Active Recall &amp; Spaced Repetition
-          </p>
-          <h1 style={{ fontSize: "32px", fontWeight: 800, margin: "6px 0", letterSpacing: "-0.03em" }}>
-            Flashcards &amp; Memory Retention.
-          </h1>
-          <p className="task-lead" style={{ maxWidth: "700px", color: "var(--mist)", fontSize: "14px", margin: 0 }}>
-            Generate high-yield flashcards according to any topic you enter or from your uploaded materials. Review using SM-2 spaced repetition intervals.
-          </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
+          <div>
+            <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Layers size={14} /> Active Recall &amp; Spaced Repetition
+              <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", background: "rgba(132,229,188,0.15)", color: "var(--mint)", border: "1px solid rgba(132,229,188,0.3)" }}>
+                {openRouterKey ? "⚡ Gemma 4 26B (OpenRouter)" : "⚡ Free AI Models Active"}
+              </span>
+            </p>
+            <h1 style={{ fontSize: "32px", fontWeight: 800, margin: "6px 0", letterSpacing: "-0.03em" }}>
+              Flashcards &amp; Memory Retention.
+            </h1>
+            <p className="task-lead" style={{ maxWidth: "700px", color: "var(--mist)", fontSize: "14px", margin: 0 }}>
+              Generate high-yield flashcards according to any topic you enter or from your uploaded materials. Review using SM-2 spaced repetition intervals.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="button quiet"
+            onClick={() => {
+              setKeyInput(openRouterKey || (typeof window !== "undefined" ? localStorage.getItem("openrouter_api_key") || "" : ""));
+              setShowKeyModal(true);
+            }}
+            style={{
+              fontSize: "11px",
+              padding: "8px 14px",
+              borderRadius: "10px",
+              border: openRouterKey ? "1px solid rgba(132,229,188,0.3)" : "1px solid rgba(255,180,50,0.4)",
+              color: openRouterKey ? "var(--mint)" : "var(--paper)",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <span>{openRouterKey ? "🔑 OpenRouter Active" : "🔑 Set OpenRouter Key"}</span>
+            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: openRouterKey ? "#4ade80" : "#f59e0b" }} />
+          </button>
         </div>
 
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -548,12 +708,13 @@ export default function FlashcardsPage() {
                 }}
                 className="flashcard glass-panel"
                 style={{
-                  minHeight: "240px",
-                  padding: "32px 28px",
-                  borderRadius: "18px",
+                  minHeight: "270px",
+                  padding: "26px 30px",
+                  borderRadius: "20px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
+                  alignItems: "stretch",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
                   border: revealed ? "1px solid var(--lime)" : "1px solid var(--line-bright)",
@@ -563,7 +724,7 @@ export default function FlashcardsPage() {
                 }}
                 aria-label={revealed ? "Hide explanation" : "Reveal explanation"}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="flashcard-header">
                   <span
                     style={{
                       fontSize: "11px",
@@ -573,37 +734,62 @@ export default function FlashcardsPage() {
                       color: revealed ? "var(--lime)" : "var(--mint)",
                       display: "flex",
                       alignItems: "center",
-                      gap: "5px",
+                      gap: "6px",
                     }}
                   >
                     {revealed ? <CheckCircle2 size={13} /> : <RotateCw size={13} />}
                     {revealed ? "EXPLANATION / ANSWER" : "QUESTION / PROMPT"}
                   </span>
-                  <span style={{ fontSize: "11px", color: "var(--mist)" }}>
-                    Card {index + 1} of {cards.length}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <span style={{ fontSize: "11px", color: "var(--mist)" }}>
+                      Card {index + 1} of {cards.length}
+                    </span>
+                    <button
+                      type="button"
+                      title="Delete card from deck"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteCard(currentCard.id);
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: "8px",
+                        color: "var(--mist)",
+                        cursor: "pointer",
+                        padding: "3px 8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        fontSize: "11px",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "#f87171";
+                        e.currentTarget.style.borderColor = "rgba(248,113,113,0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--mist)";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                      }}
+                    >
+                      <Trash2 size={11} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ margin: "24px 0", textAlign: "center" }}>
-                  <p
-                    className="flashcard-text"
-                    style={{
-                      fontSize: "20px",
-                      fontWeight: 700,
-                      lineHeight: 1.5,
-                      color: "var(--paper)",
-                      margin: 0,
-                    }}
-                  >
-                    {revealed ? currentCard.back : currentCard.front}
-                  </p>
+                <div className="flashcard-body">
+                  <div className="flashcard-text">
+                    {renderCardContent(currentCard.front, currentCard.back, revealed)}
+                  </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "var(--mist)" }}>
+                <div className="flashcard-footer" style={{ fontSize: "11px", color: "var(--mist)" }}>
                   <span>
-                    Source: <strong>{currentCard.sourceReference ?? "Topic Synthesizer"}</strong>
+                    Source: <strong style={{ color: "var(--paper)" }}>{currentCard.sourceReference ?? "Topic Synthesizer"}</strong>
                   </span>
-                  <span style={{ color: "var(--mint)" }}>
+                  <span style={{ color: "var(--mint)", fontWeight: 600 }}>
                     {revealed ? "Click to flip back" : "Click anywhere to flip"}
                   </span>
                 </div>
@@ -749,6 +935,116 @@ export default function FlashcardsPage() {
           </form>
         </details>
       </section>
+
+      {/* OpenRouter API Key Modal */}
+      {showKeyModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowKeyModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#0f1715",
+              border: "1px solid var(--line-bright)",
+              borderRadius: "16px",
+              padding: "24px",
+              maxWidth: "480px",
+              width: "100%",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>🔑</span> Configure OpenRouter Key
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                style={{ background: "none", border: "none", color: "var(--mist)", cursor: "pointer", fontSize: "18px" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: "1.5", margin: "0 0 16px" }}>
+              Enter your OpenRouter API key to power flashcard generation with <strong>Google Gemma 4 26B</strong>. Your key is stored securely in your browser session.
+            </p>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ display: "block", fontSize: "11px", color: "var(--mint)", marginBottom: "6px", fontWeight: 600 }}>
+                OPENROUTER API KEY
+              </label>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="sk-or-v1-..."
+                style={{
+                  width: "100%",
+                  height: "40px",
+                  padding: "0 12px",
+                  borderRadius: "8px",
+                  background: "rgba(0,0,0,0.5)",
+                  border: "1px solid var(--line)",
+                  color: "var(--paper)",
+                  fontSize: "13px",
+                  fontFamily: "monospace",
+                }}
+              />
+            </div>
+
+            <p style={{ fontSize: "12px", color: "var(--mist)", margin: "0 0 20px" }}>
+              Get a free API key at{" "}
+              <a
+                href="https://openrouter.ai/keys"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "var(--mint)", textDecoration: "underline" }}
+              >
+                openrouter.ai/keys
+              </a>
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              {openRouterKey && (
+                <button
+                  type="button"
+                  className="button quiet"
+                  onClick={() => {
+                    setKeyInput("");
+                    localStorage.removeItem("openrouter_api_key");
+                    setOpenRouterKey("");
+                    setShowKeyModal(false);
+                  }}
+                  style={{ fontSize: "12px" }}
+                >
+                  Clear Key
+                </button>
+              )}
+              <button
+                type="button"
+                className="button primary"
+                onClick={saveOpenRouterKey}
+                style={{ fontSize: "12px" }}
+              >
+                Save & Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
     </>
   );

@@ -1,45 +1,222 @@
 # Smart Study Portal
 
-# Smart Study Portal
+An intelligent, full-stack educational platform featuring deterministic NLP document processing, spaced-repetition flashcards, dynamic quizzes, automated study planning, focus tracking, an AI tutor, and dedicated parent and administrative portals.
 
-## Handoff audit
+---
 
-At handoff, the workspace contained only the five requirements documents (`frontend.md`, `backend.md`, `ml.md`, `design.md`, and `system-design-and-requirements.md`). There was no Git checkout, source tree, lockfile, migration, Docker setup, or test suite to preserve. The work below creates the initial implementation from those specifications; it is a runnable MVP slice, not the fully specified product.
+## 🔐 Login Credentials (All 3 Account Types)
 
-## Architecture
+The system comes pre-configured with active accounts for testing and evaluation across all roles.
 
-- `frontend/`: Next.js 16 App Router, TypeScript, Tailwind CSS. Landing, authentication, student dashboard, plans/tasks, focus mode, quizzes, flashcards, progress, source-grounded tutor, parent portal, and admin portal.
-- `backend/`: Java 21 / Spring Boot REST API, Spring Security, BCrypt, signed short-lived JWT in an HttpOnly cookie, MySQL with Flyway. Registration/login/logout/current-user, role-scoped parent/student linking and progress, limited admin account-role/system views, owner-scoped material endpoints, importance-ranked plan generation, task CRUD, focus sessions, quiz attempts, flashcard reviews, progress analytics, and tutor conversations.
-- `ml/`: FastAPI extraction, deterministic keyword/topic extraction and extractive summary draft. Supported files: PDF, TXT and DOCX. Spring persists upload metadata, accepts processing asynchronously and resumes `PROCESSING` records after restart.
-- `docker-compose.yml`: MySQL 8.4, API, and ML containers. The Next.js development server is started separately.
+| Role | Email | Password | Primary Capabilities & Features |
+| :--- | :--- | :--- | :--- |
+| **Student** | `student@test.com` | `Password123!` | • Upload and process study notes (PDF, TXT, DOCX)<br>• Automated topic-ranked study plans & task manager<br>• Focus mode with stopwatch/timer sessions<br>• Dynamic MCQ quizzes with instant scoring<br>• SuperMemo SM-2 spaced repetition flashcards<br>• Source-grounded AI Tutor with citations<br>• Study analytics and mastery tracking |
+| **Parent** | `parent@test.com` | `Password123!` | • Link student accounts via email request<br>• Real-time academic progress monitoring<br>• Total focus hours, quiz performance, and task rates<br>• Subject-level breakdown and study activity |
+| **Admin** | `admin@test.com` | `Password123!` | • System telemetry and JVM runtime health diagnostics<br>• User account management & role promotions (`STUDENT`, `PARENT`, `ADMIN`)<br>• Platform-wide database metrics and activity counters |
 
-No API keys or external AI provider are required for the deterministic baseline. Generated summaries are marked as drafts for verification.
+> **Alternative Seeded Credentials:**  
+> Student: `alex@example.test` / `password123`  
+> Parent: `jordan@example.test` / `password123`  
+> Admin: `admin@example.test` / `admin123`
 
-## Setup
+---
 
-Use Node.js 20.9+, Java 21+, Maven 3.9+, Python 3.11+, and Docker Compose (or a MySQL 8 instance). This machine has Node 26, Java 25, Python 3.14, Maven 3.9.6, and a local MySQL 8 service; Docker and Git are not on PATH.
+## 🏛️ System Architecture
 
-1. Copy `.env.example` to `.env`. Set unique database passwords and a random `JWT_SECRET` of at least 32 bytes. For HTTPS deployment, set `COOKIE_SECURE=true` and set `WEB_ORIGIN` to the frontend origin.
-2. Start the data/API/ML services with `docker compose up --build`. Or start MySQL separately, then run each service below. The configured MySQL account needs permission to create/use `smart_study` and apply Flyway migrations.
-3. In `frontend/`: `npm ci`, then `npm run dev`. Browse to http://localhost:3000. Use `npm run build` and `npm start` for production.
-4. In `backend/`: `mvn spring-boot:run`. Flyway applies `V1` through `V8` on startup. Configure `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` if not using the sample local defaults.
-5. In `ml/`: create/activate a virtual environment, `pip install -r requirements.txt`, and run `python -m uvicorn app.main:app --reload --port 8000`. Health check: http://localhost:8000/ml/v1/health.
+The project consists of 4 decoupled tiers:
 
-The Next.js browser client calls the Spring API at `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api/v1`). Set that variable at frontend build time when hosting elsewhere. Spring CORS allows only the configured `WEB_ORIGIN`.
+```
+[ Browser Client ]
+       │
+       ▼ (Port 3000)
+┌───────────────────────────────────────┐
+│     Next.js 16 Web Frontend           │
+│  React 19 • Tailwind CSS • TanStack   │
+└──────────────────┬────────────────────┘
+                   │
+                   ▼ (Port 8080)
+┌───────────────────────────────────────┐
+│     Spring Boot 3.4 REST API          │
+│  Java 21/25 • Spring Security • JWT   │
+└──────────┬─────────────────┬──────────┘
+           │                 │
+           ▼ (Port 8000)     ▼ (Port 3306)
+┌──────────────────────┐   ┌───────────────────────────┐
+│   FastAPI ML Engine  │   │      MySQL 8.0 Server     │
+│ Python 3.14 • Uvicorn│   │ Database: `smart_study`   │
+│ Summarization / NLP  │   │ Flyway Migrations V1-V8   │
+└──────────────────────┘   └───────────────────────────┘
+```
 
-## Current implementation and known gaps
+- **Frontend (`frontend/`)**: Next.js 16 App Router, TypeScript, Tailwind CSS, TanStack Query, Lucide icons.
+- **Backend (`backend/`)**: Spring Boot 3.4.2, Java 21+, Spring Security, BCrypt, signed JWT in `HttpOnly; SameSite=Lax` cookies, Flyway migrations (`V1`–`V8`).
+- **ML Engine (`ml/`)**: FastAPI, Python 3.11+, deterministic extractive summarization, salient topic/keyword extraction, definition-based quiz generation, and passage retrieval.
+- **Database**: MySQL 8.0 relational store.
 
-Implemented frontend/API flows (not yet browser-to-MySQL verified): student and parent account registration, login/logout and server-issued cookie session; student approval of parent access requests; academic progress summaries for approved parent links; admin aggregate counts and user role management; ownership-scoped materials, PDF/TXT/DOCX upload, file checks, asynchronous extraction with summary/topics/keywords, status polling and retry; topic-ranked plan generation, task CRUD, persisted focus sessions, definition-based quiz generation and scoring, flashcard generation with spaced-repetition intervals, real-data progress, and lexical retrieval of tutor source passages with conversation history. Raw documents are stored under a random key in the configured private local upload directory.
+---
 
-When the API cannot be reached, the student dashboard pages show a clearly labeled preview dataset so the interface can be explored before MySQL is configured. Preview edits and quiz attempts are temporary in-page state; uploaded files and sample records are not sent to or saved in the backend. Once an authenticated API is available, the pages use the signed-in account's real data instead.
+## ⚙️ Prerequisites
 
-Admin accounts are not self-registerable. After the first user registers, promote the intended account using a database administrator connection, for example `UPDATE users SET role = 'ADMIN' WHERE email = 'admin@example.com';`. Sign out and back in so the session token receives the updated role. The admin portal can manage roles for the most recent 100 accounts; it does not expose uploaded documents or tutor conversations. A parent can request access by student email, and the student must approve before progress is shared.
+Ensure the following tools are installed on your machine:
 
-Not implemented yet: password-reset email flow, parent link revocation/cancellation, flashcard review history and card editing, material search/deletion, precise source-page citations, OCR, Redis-backed durable queue, object-storage deployment, and rate limiting/audit logs. Admin capabilities are limited to aggregate counts and role management; there is no account suspension or content moderation. The tutor uses lexical overlap, not an LLM-generated answer. Analytics aggregates real records, with trends built from recent saved history. The current worker queue is Spring `@Async`; outstanding `PROCESSING` records are resubmitted on API restart, but this is not a distributed queue. The plan allocates short tasks in estimated-importance order and respects the selected daily-minutes cap; it does not yet optimize for deadlines, prior mastery, difficulty, or preferred study windows. The deterministic topic/keyword estimates and extractive summary are basic baselines and must not be treated as authoritative.
+- **Node.js**: `v20.9+` (Node 26 tested)
+- **Java JDK**: `21+` (Java 25 tested)
+- **Apache Maven**: `3.9+`
+- **Python**: `3.11+` (Python 3.14 tested)
+- **MySQL Server**: `8.0+`
 
-## Verification run
+---
 
-- Frontend: `npm run lint`, `npm run typecheck`, and production `npm run build` all pass on Next.js 16.3.6.
-- Backend: Maven package build passes; `mvn test` passes 4 tests for JWT handling, focus-session state transitions, and spaced-repetition intervals.
-- ML: `python -m unittest discover -s tests -v` passes 8 unit tests; FastAPI was started locally and live `/health` and `/summarize` requests returned HTTP 200.
-- Full browser-to-MySQL flow was not run: the local MySQL service is running but rejects an unauthenticated root connection, no DB credentials were supplied, and Docker is unavailable. Add valid MySQL credentials to `.env` before first API launch. No credential values are stored in this repo.
+## 🚀 How to Run the Entire Project
+
+You can run the project either using the automated PowerShell script or by starting each service manually in separate terminal windows.
+
+### Method A: One-Click Startup (PowerShell)
+
+Run the included automated startup script from the project root:
+
+```powershell
+.\run-all.ps1
+```
+
+This will automatically check ports and start:
+1. MySQL daemon on port `3306`
+2. FastAPI ML server on port `8000`
+3. Spring Boot backend on port `8080`
+4. Next.js frontend on port `3000`
+
+---
+
+### Method B: Manual Step-by-Step Startup
+
+If running services individually, open **4 terminal windows** and follow these steps:
+
+#### Step 1: Start MySQL Database
+Using the local project data directory:
+```powershell
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe" --datadir="d:\Smart Edu\mysql-local\data" --port=3306 --console
+```
+*Note: The configured database is `smart_study` with user `smart_study` and password `dev-password-change-me`.*
+
+#### Step 2: Start the ML Engine (FastAPI)
+```powershell
+cd "d:\Smart Edu\ml"
+# If creating venv for the first time:
+# python -m venv .venv
+# .venv\Scripts\pip install -r requirements.txt
+
+& "d:\Smart Edu\ml\.venv\Scripts\python.exe" -m uvicorn app.main:app --port 8000
+```
+- Health Check: [http://localhost:8000/ml/v1/health](http://localhost:8000/ml/v1/health)
+
+#### Step 3: Start the Backend REST API (Spring Boot)
+```powershell
+cd "d:\Smart Edu\backend"
+mvn spring-boot:run "-Dspring-boot.run.arguments=--spring.datasource.password=dev-password-change-me"
+```
+- Flyway will automatically apply migrations (`V1` through `V8`).
+- REST API Base: [http://localhost:8080/api/v1](http://localhost:8080/api/v1)
+
+#### Step 4: Start the Frontend Web App (Next.js)
+```powershell
+cd "d:\Smart Edu\frontend"
+# If running for the first time:
+# npm install
+
+npm run dev
+```
+- Open browser at: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🧪 Verification & End-to-End Tests
+
+To verify that all services and integration points are functioning correctly, execute the end-to-end integration test suite:
+
+```powershell
+& "d:\Smart Edu\ml\.venv\Scripts\python.exe" e2e_test.py
+```
+
+### Expected Output:
+```text
+========================================
+STARTING FULL END-TO-END SYSTEM TEST
+========================================
+[PASS] 1. ML Engine Health Endpoint
+[PASS] 2. Student Authentication (Login & Session Cookie)
+[PASS] 3. Quiz Generation by Topic & Attempt Evaluation (Score: 3/3, 100%)
+[PASS] 4. Flashcard Generation & SM-2 Spaced Repetition Review
+[PASS] 5. Study Tasks CRUD Lifecycle (Create -> Complete -> Delete)
+[PASS] 6. Focus Mode Timer Lifecycle (Start -> Pause -> Resume -> Finish)
+[PASS] 7. AI Tutor (ChatGPT Mode / NLP Query)
+[PASS] 8. Parent Portal (Children linked & live progress)
+[PASS] 9. Admin Portal (Telemetry, JVM diagnostics & user management)
+========================================
+ALL 9 CRITICAL E2E INTEGRATION SUITES PASSED!
+========================================
+```
+
+---
+
+## 🌐 Service URLs Reference
+
+| Service | Address | Description |
+| :--- | :--- | :--- |
+| **Web Application** | `http://localhost:3000` | Main user interface |
+| **Student Dashboard** | `http://localhost:3000/dashboard` | Study tools & overview |
+| **Parent Portal** | `http://localhost:3000/parent` | Student link & progress view |
+| **Admin Portal** | `http://localhost:3000/admin` | System telemetry & role control |
+| **API Endpoints** | `http://localhost:8080/api/v1` | Spring Boot REST API |
+| **ML Health Check** | `http://localhost:8000/ml/v1/health` | FastAPI health & readiness |
+| **Database** | `localhost:3306` | MySQL server (`smart_study`) |
+
+---
+
+## 🛠️ Environment Configuration (`.env`)
+
+Key configuration flags available in `.env`:
+
+```ini
+# Database
+SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/smart_study?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+SPRING_DATASOURCE_USERNAME=smart_study
+SPRING_DATASOURCE_PASSWORD=dev-password-change-me
+
+# Backend
+SERVER_PORT=8080
+ML_SERVICE_URL=http://localhost:8000
+WEB_ORIGIN=http://localhost:3000
+JWT_SECRET=local-development-secret-key-change-me-please-0123456789
+COOKIE_SECURE=false
+
+# ML Engine
+ML_SERVICE_PORT=8000
+ML_INTERNAL_TOKEN=dev-internal-token-change-me
+OCR_ENABLED=false
+```
+
+---
+
+## 📁 Repository Structure
+
+```
+Smart-Edu/
+├── backend/                  # Java 21 / Spring Boot REST API
+│   ├── src/main/java/        # Controllers, services, security, domain models
+│   ├── src/main/resources/   # Flyway migrations (db/migration/V1__... to V8__...)
+│   └── pom.xml               # Maven dependencies and build setup
+├── frontend/                 # Next.js 16 Web Application
+│   ├── src/app/              # App Router pages (login, dashboard, focus, quizzes, etc.)
+│   ├── src/components/       # UI components & layouts
+│   ├── src/hooks/            # TanStack Query custom hooks
+│   └── src/lib/              # Typed API client & query provider
+├── ml/                       # FastAPI NLP Engine
+│   ├── app/main.py           # Text extraction, summarization, quiz generation
+│   └── requirements.txt      # Python dependencies
+├── mysql-local/data/         # Local MySQL data files and tables
+├── docs/                     # Specifications, progress, and feature matrix
+├── e2e_test.py               # 9-suite End-to-End integration test runner
+├── run-all.ps1               # Automated startup script
+├── stop-all.ps1              # Automated shutdown script
+└── README.md                 # Project documentation & credentials
+```

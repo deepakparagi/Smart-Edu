@@ -6,9 +6,11 @@ import edu.smartstudy.material.*;
 import edu.smartstudy.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import java.time.Duration;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
@@ -22,18 +24,25 @@ public class FlashcardController {
     private final UserRepository users;
     private final ObjectMapper json;
     private final RestClient ml;
+    private final String defaultOpenRouterApiKey;
 
     public FlashcardController(FlashcardRepository cards, FlashcardReviewRepository reviews,
                                MaterialRepository materials, UserRepository users,
                                ObjectMapper json,
                                @Value("${app.ml-url}") String mlUrl,
-                               @Value("${app.ml-internal-token}") String mlInternalToken) {
+                               @Value("${app.ml-internal-token}") String mlInternalToken,
+                               @Value("${app.openrouter-api-key:}") String defaultOpenRouterApiKey) {
         this.cards = cards;
         this.reviews = reviews;
         this.materials = materials;
         this.users = users;
         this.json = json;
+        this.defaultOpenRouterApiKey = defaultOpenRouterApiKey;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(15));
+        factory.setReadTimeout(Duration.ofSeconds(90));
         this.ml = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl(mlUrl)
                 .defaultHeader("X-Internal-Token", mlInternalToken)
                 .build();
@@ -141,10 +150,19 @@ public class FlashcardController {
     @PostMapping("/generate")
     public ResponseEntity<?> generate(
             @RequestBody GenerateRequest input,
-            @RequestHeader(value = "X-Groq-Api-Key", required = false) String clientGroqApiKey,
+            @RequestHeader(value = "X-OpenRouter-Api-Key", required = false) String clientOpenRouterApiKey,
+            @RequestHeader(value = "X-LLM-Api-Key", required = false) String clientLlmApiKey,
             Authentication a
     ) throws Exception {
         Long student = owner(a);
+
+        String clientApiKey = (clientOpenRouterApiKey != null && !clientOpenRouterApiKey.isBlank())
+                ? clientOpenRouterApiKey.trim()
+                : (clientLlmApiKey != null && !clientLlmApiKey.isBlank())
+                    ? clientLlmApiKey.trim()
+                    : (defaultOpenRouterApiKey != null && !defaultOpenRouterApiKey.isBlank())
+                        ? defaultOpenRouterApiKey.trim()
+                        : null;
 
         String topicName = input.topic() != null ? input.topic().trim() : "";
         Long targetMaterialId = input.materialId();
@@ -192,16 +210,16 @@ public class FlashcardController {
             }
         }
         mlReq.put("count", input.count() != null ? input.count() : 6);
-        if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
-            mlReq.put("api_key", clientGroqApiKey.trim());
+        if (clientApiKey != null) {
+            mlReq.put("api_key", clientApiKey);
         }
 
         Map<?, ?> response;
         try {
             var postBuilder = ml.post().uri("/ml/v1/flashcards")
                     .contentType(MediaType.APPLICATION_JSON);
-            if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
-                postBuilder.header("X-Groq-Api-Key", clientGroqApiKey.trim());
+            if (clientApiKey != null) {
+                postBuilder.header("X-OpenRouter-Api-Key", clientApiKey);
             }
             response = postBuilder.body(mlReq).retrieve().body(Map.class);
         } catch (Exception e) {

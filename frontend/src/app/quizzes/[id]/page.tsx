@@ -74,7 +74,7 @@ export default function QuizDetail() {
     if (!id) return;
     try {
       const response = await fetch(`${API}/quizzes/${id}`, { credentials: "include" });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         router.push("/login");
         return;
       }
@@ -86,6 +86,19 @@ export default function QuizDetail() {
       setAnswers(Array(data.questions?.length || 0).fill(""));
     } catch {
       setDemoMode(true);
+      if (typeof window !== "undefined") {
+        const custom = sessionStorage.getItem("custom_demo_quiz");
+        if (custom) {
+          try {
+            const parsed = JSON.parse(custom);
+            if (String(parsed.id) === String(id) || id === "9999") {
+              setQuiz(parsed as Quiz);
+              setAnswers(Array(parsed.questions.length).fill(""));
+              return;
+            }
+          } catch {}
+        }
+      }
       const found = demoQuizzes.find((q) => String(q.id) === String(id)) ?? demoQuizzes[0];
       setQuiz(found as unknown as Quiz);
       setAnswers(Array(found.questions.length).fill(""));

@@ -6,9 +6,11 @@ import edu.smartstudy.material.*;
 import edu.smartstudy.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import java.time.Duration;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
@@ -22,6 +24,7 @@ public class TutorController {
     private final UserRepository users;
     private final RestClient ml;
     private final ObjectMapper json;
+    private final String defaultOpenRouterApiKey;
 
     public TutorController(TutorConversationRepository conversations,
                            TutorMessageRepository messages,
@@ -29,12 +32,18 @@ public class TutorController {
                            UserRepository users,
                            @Value("${app.ml-url}") String mlUrl,
                            @Value("${app.ml-internal-token:dev-internal-token-change-me}") String mlInternalToken,
+                           @Value("${app.openrouter-api-key:}") String defaultOpenRouterApiKey,
                            ObjectMapper json) {
         this.conversations = conversations;
         this.messages = messages;
         this.materials = materials;
         this.users = users;
+        this.defaultOpenRouterApiKey = defaultOpenRouterApiKey;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(15));
+        factory.setReadTimeout(Duration.ofSeconds(90));
         this.ml = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl(mlUrl)
                 .defaultHeader("X-Internal-Token", mlInternalToken)
                 .build();
@@ -84,10 +93,19 @@ public class TutorController {
     @PostMapping("/ask")
     public ResponseEntity<?> ask(
             @RequestBody @Valid AskRequest input,
-            @RequestHeader(value = "X-Groq-Api-Key", required = false) String clientGroqApiKey,
+            @RequestHeader(value = "X-OpenRouter-Api-Key", required = false) String clientOpenRouterApiKey,
+            @RequestHeader(value = "X-LLM-Api-Key", required = false) String clientLlmApiKey,
             Authentication a
     ) throws Exception {
         Long student = owner(a);
+
+        String clientApiKey = (clientOpenRouterApiKey != null && !clientOpenRouterApiKey.isBlank())
+                ? clientOpenRouterApiKey.trim()
+                : (clientLlmApiKey != null && !clientLlmApiKey.isBlank())
+                    ? clientLlmApiKey.trim()
+                    : (defaultOpenRouterApiKey != null && !defaultOpenRouterApiKey.isBlank())
+                        ? defaultOpenRouterApiKey.trim()
+                        : null;
 
         String contextText = null;
         String materialTitle = null;
@@ -135,16 +153,16 @@ public class TutorController {
             chatPayload.put("context", contextText);
             chatPayload.put("material_title", materialTitle);
         }
-        if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
-            chatPayload.put("api_key", clientGroqApiKey.trim());
+        if (clientApiKey != null) {
+            chatPayload.put("api_key", clientApiKey);
         }
 
         Map<?, ?> chatResponse;
         try {
             var reqBuilder = ml.post().uri("/ml/v1/chat")
                     .contentType(MediaType.APPLICATION_JSON);
-            if (clientGroqApiKey != null && !clientGroqApiKey.isBlank()) {
-                reqBuilder.header("X-Groq-Api-Key", clientGroqApiKey.trim());
+            if (clientApiKey != null) {
+                reqBuilder.header("X-OpenRouter-Api-Key", clientApiKey);
             }
             chatResponse = reqBuilder.body(chatPayload).retrieve().body(Map.class);
         } catch (Exception e) {
@@ -163,7 +181,7 @@ public class TutorController {
                     );
                 } else {
                     chatResponse = Map.of(
-                            "answer", "I received your question: \"" + input.question() + "\". Please ensure the AI worker is active or check your Groq API key in settings.",
+                            "answer", "I received your question: \"" + input.question() + "\". Please ensure the AI worker is active or check your OpenRouter API key in settings.",
                             "sources", List.of()
                     );
                 }
@@ -184,7 +202,7 @@ public class TutorController {
         return ResponseEntity.ok(Map.of(
                 "conversationId", conversation.getId(),
                 "messages", messages.findByConversationIdOrderByCreatedAtAsc(conversation.getId()).stream().map(this::messageView).toList(),
-                "model", chatResponse != null && chatResponse.get("model") != null ? chatResponse.get("model").toString() : "Llama-3.3-70b"
+                "model", chatResponse != null && chatResponse.get("model") != null ? chatResponse.get("model").toString() : "google/gemma-4-26b-a4b-it:free"
         ));
     }
 }

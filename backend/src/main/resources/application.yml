@@ -48,3 +48,4 @@ app:
   max-upload-mb: ${MAX_UPLOAD_MB:20}
   user-storage-quota-mb: ${USER_STORAGE_QUOTA_MB:500}
   dev-seed-enabled: ${DEV_SEED_ENABLED:false}
+  openrouter-api-key: ${OPENROUTER_API_KEY:${LLM_API_KEY:}}

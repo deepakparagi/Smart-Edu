@@ -105,29 +105,39 @@ export default function TutorPage() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [demoMode, setDemoMode] = useState<boolean>(false);
 
-  // Groq API Key State
-  const [groqKey, setGroqKey] = useState<string>(() => {
+const DEFAULT_OPENROUTER_KEY =
+  process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
+
+  // OpenRouter API Key State (defaults to configured key)
+  const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("groq_api_key") || "";
+      const stored = localStorage.getItem("openrouter_api_key");
+      if (stored && stored.trim().length > 0) return stored.trim();
+      try {
+        localStorage.setItem("openrouter_api_key", DEFAULT_OPENROUTER_KEY);
+      } catch {}
+      return DEFAULT_OPENROUTER_KEY;
     }
-    return "";
+    return DEFAULT_OPENROUTER_KEY;
   });
   const [showKeyModal, setShowKeyModal] = useState<boolean>(false);
   const [keyInput, setKeyInput] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("groq_api_key") || "";
+      const stored = localStorage.getItem("openrouter_api_key");
+      if (stored && stored.trim().length > 0) return stored.trim();
+      return DEFAULT_OPENROUTER_KEY;
     }
-    return "";
+    return DEFAULT_OPENROUTER_KEY;
   });
 
-  const saveGroqKey = () => {
+  const saveOpenRouterKey = () => {
     const clean = keyInput.trim();
-    setGroqKey(clean);
+    setOpenRouterKey(clean);
     if (typeof window !== "undefined") {
       if (clean) {
-        localStorage.setItem("groq_api_key", clean);
+        localStorage.setItem("openrouter_api_key", clean);
       } else {
-        localStorage.removeItem("groq_api_key");
+        localStorage.removeItem("openrouter_api_key");
       }
     }
     setShowKeyModal(false);
@@ -139,7 +149,7 @@ export default function TutorPage() {
         fetch(`${API}/materials`, { credentials: "include" }),
         fetch(`${API}/tutor/conversations`, { credentials: "include" }),
       ]);
-      if (m.status === 401) {
+      if (m.status === 401 || m.status === 403) {
         router.push("/login");
         return;
       }
@@ -280,7 +290,7 @@ export default function TutorPage() {
             `- **Concept:** Key educational overview.\n` +
             `- **Explanation:** Step-by-step reasoning.\n` +
             `- **Example:** Applicable real-world use case.\n\n` +
-            `*Tip: Connect a free Groq API key in the top right for live Llama 3.3 70B generation!*`;
+            `*Tip: Connect a free OpenRouter API key in the top right for live Gemma 4 26B generation!*`;
         }
 
         setMessages((current) => [
@@ -298,8 +308,8 @@ export default function TutorPage() {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (groqKey) {
-        headers["X-Groq-Api-Key"] = groqKey;
+      if (openRouterKey) {
+        headers["X-OpenRouter-Api-Key"] = openRouterKey;
       }
 
       const response = await fetch(`${API}/tutor/ask`, {
@@ -381,7 +391,7 @@ export default function TutorPage() {
             <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span>AI Learning Companion</span>
               <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", background: "rgba(132,229,188,0.15)", color: "var(--mint)", border: "1px solid rgba(132,229,188,0.3)" }}>
-                {groqKey ? "⚡ Llama 3.3 70B (Groq)" : "🌐 General AI Mode"}
+                {openRouterKey ? "⚡ Gemma 4 26B (OpenRouter)" : "🌐 General AI Mode"}
               </span>
             </p>
             <h1>Study tutor</h1>
@@ -399,15 +409,15 @@ export default function TutorPage() {
               fontSize: "11px",
               padding: "8px 14px",
               borderRadius: "10px",
-              border: groqKey ? "1px solid rgba(132,229,188,0.3)" : "1px solid rgba(255,180,50,0.4)",
-              color: groqKey ? "var(--mint)" : "var(--paper)",
+              border: openRouterKey ? "1px solid rgba(132,229,188,0.3)" : "1px solid rgba(255,180,50,0.4)",
+              color: openRouterKey ? "var(--mint)" : "var(--paper)",
               display: "flex",
               alignItems: "center",
               gap: "6px",
             }}
           >
-            <span>{groqKey ? "🔑 Groq Active" : "🔑 Set Groq Key"}</span>
-            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: groqKey ? "#4ade80" : "#f59e0b" }} />
+            <span>{openRouterKey ? "🔑 OpenRouter Active" : "🔑 Set OpenRouter Key"}</span>
+            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: openRouterKey ? "#4ade80" : "#f59e0b" }} />
           </button>
         </header>
 
@@ -440,7 +450,7 @@ export default function TutorPage() {
                   style={{ fontSize: "11px" }}
                   onClick={() => setShowKeyModal(true)}
                 >
-                  🔑 Enter Groq API key
+                  🔑 Enter OpenRouter API key
                 </button>
               </div>
             </div>
@@ -604,7 +614,7 @@ export default function TutorPage() {
         </form>
       </section>
 
-      {/* Groq API Key Modal */}
+      {/* OpenRouter API Key Modal */}
       {showKeyModal && (
         <div
           style={{
@@ -632,7 +642,7 @@ export default function TutorPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", color: "var(--paper)" }}>🔑 Groq AI Configuration</h3>
+              <h3 style={{ margin: 0, fontSize: "18px", color: "var(--paper)" }}>🔑 OpenRouter AI Configuration</h3>
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
@@ -643,19 +653,19 @@ export default function TutorPage() {
             </div>
 
             <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: 1.5, margin: "0 0 16px" }}>
-              Smart Study uses <strong>Groq Cloud</strong> to run <strong>Llama 3.3 70B</strong> at lightning speed for free.
+              Smart Study connects to <strong>OpenRouter</strong> to run <strong>Google Gemma 4 26B</strong> (<code>google/gemma-4-26b-a4b-it:free</code>) and high-performance free models.
               Enter your API key below:
             </p>
 
             <div style={{ marginBottom: "16px" }}>
               <label style={{ display: "block", fontSize: "11px", color: "var(--mist)", marginBottom: "6px" }}>
-                Groq API Key (starts with <code>gsk_</code>)
+                OpenRouter API Key (starts with <code>sk-or-v1-</code>)
               </label>
               <input
                 type="password"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="gsk_..."
+                placeholder="sk-or-v1-..."
                 style={{
                   width: "100%",
                   height: "38px",
@@ -671,26 +681,26 @@ export default function TutorPage() {
             </div>
 
             <p style={{ fontSize: "12px", color: "var(--mist)", margin: "0 0 20px" }}>
-              Don&apos;t have a key? Get one 100% free in 30 seconds at{" "}
+              Get a free API key at{" "}
               <a
-                href="https://console.groq.com/keys"
+                href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noreferrer"
                 style={{ color: "var(--mint)", textDecoration: "underline" }}
               >
-                console.groq.com/keys
+                openrouter.ai/keys
               </a>
             </p>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              {groqKey && (
+              {openRouterKey && (
                 <button
                   type="button"
                   className="button quiet"
                   onClick={() => {
                     setKeyInput("");
-                    localStorage.removeItem("groq_api_key");
-                    setGroqKey("");
+                    localStorage.removeItem("openrouter_api_key");
+                    setOpenRouterKey("");
                     setShowKeyModal(false);
                   }}
                   style={{ fontSize: "12px" }}
@@ -701,7 +711,7 @@ export default function TutorPage() {
               <button
                 type="button"
                 className="button primary"
-                onClick={saveGroqKey}
+                onClick={saveOpenRouterKey}
                 style={{ fontSize: "12px" }}
               >
                 Save & Connect
