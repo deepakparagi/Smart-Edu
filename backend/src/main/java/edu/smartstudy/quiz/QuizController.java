@@ -66,6 +66,38 @@ public class QuizController {
                 .toList();
     }
 
+    @PostMapping("/test-key")
+    public ResponseEntity<?> testKey(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader(value = "X-OpenRouter-Api-Key", required = false) String clientOpenRouterApiKey,
+            @RequestHeader(value = "X-LLM-Api-Key", required = false) String clientLlmApiKey
+    ) {
+        String key = null;
+        if (body != null) {
+            key = body.getOrDefault("apiKey", body.get("api_key"));
+        }
+        if (key == null || key.isBlank()) {
+            key = clientOpenRouterApiKey != null && !clientOpenRouterApiKey.isBlank() ? clientOpenRouterApiKey : clientLlmApiKey;
+        }
+        if (key == null || key.isBlank()) {
+            key = defaultOpenRouterApiKey;
+        }
+        if (key == null || key.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("valid", false, "error", "No API key provided."));
+        }
+
+        try {
+            var postBuilder = ml.post().uri("/ml/v1/test-key")
+                    .contentType(MediaType.APPLICATION_JSON);
+            Map<?, ?> resp = postBuilder.body(Map.of("api_key", key.trim())).retrieve().body(Map.class);
+            return ResponseEntity.ok(resp);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("valid", false, "error", "Could not reach ML service: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/generate")
     public ResponseEntity<?> generate(
             @RequestBody GenerateRequest input,
@@ -248,6 +280,7 @@ public class QuizController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication a) {
         return quizzes.findByIdAndOwnerId(id, owner(a)).map(quiz -> {
             attempts.deleteAll(attempts.findByQuizId(id));

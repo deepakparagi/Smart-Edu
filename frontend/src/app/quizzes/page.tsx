@@ -21,6 +21,7 @@ export default function QuizzesPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState<string | number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
@@ -50,6 +51,40 @@ export default function QuizzesPage() {
     }
     return DEFAULT_OPENROUTER_KEY;
   });
+
+  const [testStatus, setTestStatus] = useState<{ testing: boolean; result?: { valid: boolean; message?: string; error?: string; rate_limited?: boolean } }>({ testing: false });
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleTestKey = async () => {
+    const targetKey = keyInput.trim() || openRouterKey.trim();
+    if (!targetKey) {
+      setTestStatus({ testing: false, result: { valid: false, error: "Please paste your API key in the input box first." } });
+      return;
+    }
+    setTestStatus({ testing: true, result: undefined });
+    try {
+      const res = await fetch(`${API}/quizzes/test-key`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: targetKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.valid) {
+        setTestStatus({ testing: false, result: { valid: true, message: data.message || "Key is verified and ready for quiz generation!" } });
+      } else {
+        setTestStatus({
+          testing: false,
+          result: {
+            valid: false,
+            error: data.message || data.error || data.detail || `Validation failed (HTTP ${res.status})`,
+            rate_limited: data.rate_limited || res.status === 429,
+          },
+        });
+      }
+    } catch (err: unknown) {
+      setTestStatus({ testing: false, result: { valid: false, error: err instanceof Error ? err.message : "Could not reach backend test endpoint." } });
+    }
+  };
 
   const saveOpenRouterKey = () => {
     const clean = keyInput.trim();
@@ -269,6 +304,73 @@ export default function QuizzesPage() {
     }
   }
 
+  // Delete a saved quiz
+  async function deleteQuiz(quizId: number, event?: React.MouseEvent) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!window.confirm("Are you sure you want to delete this quiz? All associated attempts and scores will also be removed.")) {
+      return;
+    }
+    setBusy(`delete-quiz-${quizId}`);
+    setError("");
+    setNotice("");
+    try {
+      if (!demoMode) {
+        const response = await fetch(`${API}/quizzes/${quizId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const res = await response.json().catch(() => ({}));
+          throw new Error(res.error || res.message || "Failed to delete quiz.");
+        }
+      }
+      setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
+      setNotice("Quiz deleted successfully.");
+      setTimeout(() => setNotice(""), 4000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete quiz.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Delete an uploaded study note
+  async function deleteMaterial(materialId: number, event?: React.MouseEvent) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!window.confirm("Are you sure you want to delete this study note? Associated quizzes and flashcards will also be deleted.")) {
+      return;
+    }
+    setBusy(`delete-mat-${materialId}`);
+    setError("");
+    setNotice("");
+    try {
+      if (!demoMode) {
+        const response = await fetch(`${API}/materials/${materialId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const res = await response.json().catch(() => ({}));
+          throw new Error(res.error || res.message || "Failed to delete note.");
+        }
+      }
+      setMaterials((prev) => prev.filter((m) => m.id !== materialId));
+      setQuizzes((prev) => prev.filter((q) => q.materialId !== materialId));
+      setNotice("Study note deleted successfully.");
+      setTimeout(() => setNotice(""), 4000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete note.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const readyMaterials = materials.filter((material) => material.status === "COMPLETED");
 
   return (
@@ -320,16 +422,64 @@ export default function QuizzesPage() {
           </button>
         </div>
 
+        {notice && (
+          <div
+            style={{
+              padding: "10px 16px",
+              borderRadius: "10px",
+              background: "rgba(132, 229, 188, 0.12)",
+              border: "1px solid rgba(132, 229, 188, 0.3)",
+              color: "var(--mint)",
+              fontSize: "13px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span>✅</span> {notice}
+          </div>
+        )}
+
         {error && <p className="form-error" role="alert">{error}</p>}
 
         {/* Section 1: Generate by Topic */}
         <section className="task-list-section" style={{ background: "rgba(255,255,255,0.03)", padding: "20px", borderRadius: "16px", border: "1px solid var(--line-bright)" }}>
-          <div className="section-title" style={{ marginBottom: "16px" }}>
+          <div className="section-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
             <div>
               <p className="eyebrow">AI Quiz Generator</p>
               <h2>Generate by Topic</h2>
             </div>
-            <span style={{ fontSize: "11px", color: "var(--mint)" }}>⚡ Enter any subject or concept</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                id="connect-key-btn"
+                onClick={() => {
+                  setKeyInput(openRouterKey || (typeof window !== "undefined" ? localStorage.getItem("openrouter_api_key") || "" : ""));
+                  setTestStatus({ testing: false });
+                  setShowKeyModal(true);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  padding: "5px 13px",
+                  borderRadius: "20px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: openRouterKey ? "rgba(132,229,188,0.12)" : "rgba(255,180,50,0.12)",
+                  border: openRouterKey ? "1px solid rgba(132,229,188,0.3)" : "1px solid rgba(255,180,50,0.4)",
+                  color: openRouterKey ? "var(--mint)" : "#f8b739",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <span>🔑</span>
+                <span>{openRouterKey ? "API Key Connected" : "Connect API Key"}</span>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: openRouterKey ? "#4ade80" : "#f59e0b" }} />
+              </button>
+              <span style={{ fontSize: "11px", color: "var(--mint)" }}>⚡ Enter any subject or concept</span>
+            </div>
           </div>
 
           <form id="topic-quiz-form" onSubmit={generateByTopic} style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -467,13 +617,34 @@ export default function QuizzesPage() {
                     <h3>{material.title}</h3>
                     <p>Ready for question generation</p>
                   </div>
-                  <button
-                    className="button primary"
-                    onClick={() => void generate(material.id)}
-                    disabled={busy === material.id}
-                  >
-                    {busy === material.id ? "Generating..." : "Generate quiz"}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      className="button primary"
+                      onClick={() => void generate(material.id)}
+                      disabled={busy === material.id || busy === `delete-mat-${material.id}`}
+                    >
+                      {busy === material.id ? "Generating..." : "Generate quiz"}
+                    </button>
+                    <button
+                      type="button"
+                      className="button quiet"
+                      onClick={(e) => void deleteMaterial(material.id, e)}
+                      disabled={busy === `delete-mat-${material.id}`}
+                      style={{
+                        padding: "7px 11px",
+                        fontSize: "12px",
+                        color: "#ff7070",
+                        borderColor: "rgba(255, 112, 112, 0.3)",
+                        background: "rgba(255, 70, 70, 0.08)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                      title="Delete this study note"
+                    >
+                      {busy === `delete-mat-${material.id}` ? "Deleting..." : "🗑️ Delete"}
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -504,9 +675,30 @@ export default function QuizzesPage() {
                     <h3>{quiz.title}</h3>
                     <p>Created {new Date(quiz.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <Link className="small-action" href={`/quizzes/${quiz.id}`}>
-                    Take quiz →
-                  </Link>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Link className="small-action" href={`/quizzes/${quiz.id}`}>
+                      Take quiz →
+                    </Link>
+                    <button
+                      type="button"
+                      className="button quiet"
+                      onClick={(e) => void deleteQuiz(quiz.id, e)}
+                      disabled={busy === `delete-quiz-${quiz.id}`}
+                      style={{
+                        padding: "6px 11px",
+                        fontSize: "12px",
+                        color: "#ff7070",
+                        borderColor: "rgba(255, 112, 112, 0.3)",
+                        background: "rgba(255, 70, 70, 0.08)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                      title="Delete this quiz"
+                    >
+                      {busy === `delete-quiz-${quiz.id}` ? "Deleting..." : "🗑️ Delete"}
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -514,14 +706,14 @@ export default function QuizzesPage() {
         </section>
       </section>
 
-      {/* OpenRouter API Key Modal */}
+      {/* LLM / OpenRouter API Key Modal */}
       {showKeyModal && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(4px)",
+            background: "rgba(0,0,0,0.8)",
+            backdropFilter: "blur(6px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -534,18 +726,18 @@ export default function QuizzesPage() {
         >
           <div
             style={{
-              background: "#0f1715",
+              background: "#0c1512",
               border: "1px solid var(--line-bright)",
-              borderRadius: "16px",
-              padding: "24px",
-              maxWidth: "480px",
+              borderRadius: "18px",
+              padding: "26px",
+              maxWidth: "520px",
               width: "100%",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+              boxShadow: "0 24px 50px rgba(0,0,0,0.75)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>🔑</span> Configure OpenRouter Key
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h3 style={{ margin: 0, fontSize: "17px", display: "flex", alignItems: "center", gap: "8px", fontWeight: 700 }}>
+                <span>🔑</span> Configure AI Key for Quizzes
               </h3>
               <button
                 type="button"
@@ -556,44 +748,158 @@ export default function QuizzesPage() {
               </button>
             </div>
 
-            <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: "1.5", margin: "0 0 16px" }}>
-              Enter your OpenRouter API key to power quiz generation with <strong>Google Gemma 4 26B</strong>. Your key is stored securely in your browser session.
+            <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: "1.55", margin: "0 0 16px" }}>
+              Connect your API key to generate deep, accurate multiple-choice quizzes on <strong>any searched topic</strong>. We support both <strong>Groq</strong> (recommended, 100% free with 14,400 daily requests) and <strong>OpenRouter</strong>.
             </p>
 
-            <div style={{ marginBottom: "14px" }}>
-              <label style={{ display: "block", fontSize: "11px", color: "var(--mint)", marginBottom: "6px", fontWeight: 600 }}>
-                OPENROUTER API KEY
-              </label>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="sk-or-v1-..."
-                style={{
-                  width: "100%",
-                  height: "40px",
-                  padding: "0 12px",
-                  borderRadius: "8px",
-                  background: "rgba(0,0,0,0.5)",
-                  border: "1px solid var(--line)",
-                  color: "var(--paper)",
-                  fontSize: "13px",
-                  fontFamily: "monospace",
-                }}
-              />
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "11px", padding: "4px 9px", borderRadius: "12px", background: "rgba(132,229,188,0.1)", border: "1px solid rgba(132,229,188,0.25)", color: "var(--mint)" }}>
+                ⚡ Groq: <code>gsk_...</code> (Free &amp; Ultra-Fast)
+              </span>
+              <span style={{ fontSize: "11px", padding: "4px 9px", borderRadius: "12px", background: "rgba(168,231,255,0.1)", border: "1px solid rgba(168,231,255,0.25)", color: "var(--blue)" }}>
+                🌐 OpenRouter: <code>sk-or-v1-...</code>
+              </span>
             </div>
 
-            <p style={{ fontSize: "12px", color: "var(--mist)", margin: "0 0 20px" }}>
-              Get a free API key at{" "}
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "var(--mint)", textDecoration: "underline" }}
+            <div style={{ marginBottom: "12px" }}>
+              <label style={{ display: "block", fontSize: "11px", color: "var(--mint)", marginBottom: "6px", fontWeight: 700, letterSpacing: "0.05em" }}>
+                API KEY
+              </label>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={keyInput}
+                  onChange={(e) => {
+                    setKeyInput(e.target.value);
+                    setTestStatus({ testing: false });
+                  }}
+                  placeholder="gsk_... or sk-or-v1-..."
+                  style={{
+                    flex: 1,
+                    height: "42px",
+                    padding: "0 12px",
+                    borderRadius: "8px",
+                    background: "rgba(0,0,0,0.5)",
+                    border: "1px solid var(--line)",
+                    color: "var(--paper)",
+                    fontSize: "13px",
+                    fontFamily: "monospace",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    padding: "0 12px",
+                    height: "42px",
+                    borderRadius: "8px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid var(--line)",
+                    color: "var(--mist)",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            {/* Test & Verification Result Box */}
+            {testStatus.testing && (
+              <div style={{ padding: "10px 14px", borderRadius: "8px", background: "rgba(168,231,255,0.08)", border: "1px solid rgba(168,231,255,0.2)", fontSize: "12px", color: "var(--blue)", marginBottom: "14px" }}>
+                ⏳ Testing connection to AI service...
+              </div>
+            )}
+            {testStatus.result && (
+              <div
+                style={{
+                  padding: "11px 14px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  lineHeight: "1.5",
+                  marginBottom: "14px",
+                  background: testStatus.result.valid
+                    ? "rgba(132,229,188,0.12)"
+                    : testStatus.result.rate_limited
+                    ? "rgba(255,180,50,0.14)"
+                    : "rgba(255,90,90,0.12)",
+                  border: `1px solid ${
+                    testStatus.result.valid
+                      ? "rgba(132,229,188,0.35)"
+                      : testStatus.result.rate_limited
+                      ? "rgba(255,180,50,0.4)"
+                      : "rgba(255,90,90,0.3)"
+                  }`,
+                  color: testStatus.result.valid
+                    ? "var(--mint)"
+                    : testStatus.result.rate_limited
+                    ? "#f8b739"
+                    : "#ff7070",
+                }}
               >
-                openrouter.ai/keys
-              </a>
-            </p>
+                {testStatus.result.valid ? (
+                  <div>
+                    <strong>✅ Key Verified &amp; Active!</strong>
+                    <div style={{ marginTop: "3px", fontSize: "11px", opacity: 0.9 }}>{testStatus.result.message}</div>
+                  </div>
+                ) : testStatus.result.rate_limited ? (
+                  <div>
+                    <strong>⚠️ Rate Limit Exceeded (HTTP 429)</strong>
+                    <div style={{ marginTop: "3px", fontSize: "11px" }}>
+                      This key has reached its free request quota. Tip: Get a free Groq key from{" "}
+                      <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ textDecoration: "underline", color: "inherit", fontWeight: 700 }}>
+                        console.groq.com/keys
+                      </a>{" "}
+                      for instant 14,400 daily requests.
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <strong>❌ Connection Failed:</strong> {testStatus.result.error}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 18px", fontSize: "12px", color: "var(--mist)", flexWrap: "wrap", gap: "8px" }}>
+              <span>
+                Free keys:{" "}
+                <a
+                  href="https://console.groq.com/keys"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--mint)", textDecoration: "underline", marginRight: "10px" }}
+                >
+                  Groq (Instant)
+                </a>
+                <a
+                  href="https://openrouter.ai/keys"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--blue)", textDecoration: "underline" }}
+                >
+                  OpenRouter
+                </a>
+              </span>
+              <button
+                type="button"
+                onClick={handleTestKey}
+                disabled={testStatus.testing}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid var(--line-bright)",
+                  color: "var(--paper)",
+                  padding: "5px 11px",
+                  borderRadius: "7px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                🧪 Test &amp; Verify Key
+              </button>
+            </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
               {openRouterKey && (
@@ -604,6 +910,7 @@ export default function QuizzesPage() {
                     setKeyInput("");
                     localStorage.removeItem("openrouter_api_key");
                     setOpenRouterKey("");
+                    setTestStatus({ testing: false });
                     setShowKeyModal(false);
                   }}
                   style={{ fontSize: "12px" }}
@@ -617,7 +924,7 @@ export default function QuizzesPage() {
                 onClick={saveOpenRouterKey}
                 style={{ fontSize: "12px" }}
               >
-                Save & Connect
+                Save &amp; Connect Key
               </button>
             </div>
           </div>

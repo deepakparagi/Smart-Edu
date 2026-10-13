@@ -148,6 +148,30 @@ export default function QuizDetail() {
     }
   }
 
+  async function handleDeleteThisQuiz() {
+    if (!window.confirm("Are you sure you want to delete this quiz? All associated attempts and scores will also be removed.")) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      if (!demoMode && id) {
+        const response = await fetch(`${API}/quizzes/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const res = await response.json().catch(() => ({}));
+          throw new Error(res.error || res.message || "Failed to delete quiz.");
+        }
+      }
+      router.push("/quizzes");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete quiz.");
+      setBusy(false);
+    }
+  }
+
   function handleRetake() {
     if (!quiz) return;
     setAnswers(Array(quiz.questions.length).fill(""));
@@ -164,13 +188,36 @@ export default function QuizDetail() {
     <>
       <Navbar
         customRightAction={
-          <Link
-            className="back-link"
-            href="/quizzes"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-          >
-            <ArrowLeft size={13} /> Back to quizzes
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              className="button quiet"
+              onClick={handleDeleteThisQuiz}
+              disabled={busy}
+              style={{
+                padding: "6px 12px",
+                fontSize: "12px",
+                color: "#ff7070",
+                borderColor: "rgba(255, 112, 112, 0.3)",
+                background: "rgba(255, 70, 70, 0.08)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+              title="Delete this quiz"
+            >
+              🗑️ Delete quiz
+            </button>
+            <Link
+              className="back-link"
+              href="/quizzes"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <ArrowLeft size={13} /> Back to quizzes
+            </Link>
+          </div>
         }
       />
       <main className="task-page" style={{ maxWidth: "1000px", margin: "0 auto", padding: "28px 20px 80px" }}>

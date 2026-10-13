@@ -45,7 +45,8 @@ public class SecurityConfig {
                     "/api/v1/auth/login",
                     "/api/v1/auth/forgot-password",
                     "/api/v1/auth/reset-password",
-                    "/api/v1/auth/verify-email"
+                    "/api/v1/auth/verify-email",
+                    "/api/v1/quizzes/test-key"
                 ).permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()

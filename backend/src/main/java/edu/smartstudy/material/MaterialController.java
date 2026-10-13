@@ -233,6 +233,7 @@ public class MaterialController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication a) {
         Long userId = owner(a);
         Material m = repo.findByIdAndOwnerId(id, userId).orElse(null);
