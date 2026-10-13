@@ -14,6 +14,12 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 const DEFAULT_OPENROUTER_KEY =
   process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
 
+const DEFAULT_OPENROUTER_MODEL =
+  process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
+  "nvidia/nemotron-3-ultra-550b-a55b:free";
+
+const LEGACY_KEY_PREFIX = "sk-or-v1-8a9";
+
 export default function QuizzesPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +47,9 @@ export default function QuizzesPage() {
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       try {
         localStorage.setItem("openrouter_api_key", DEFAULT_OPENROUTER_KEY);
       } catch {}
@@ -53,7 +61,9 @@ export default function QuizzesPage() {
   const [keyInput, setKeyInput] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       return DEFAULT_OPENROUTER_KEY;
     }
     return DEFAULT_OPENROUTER_KEY;
@@ -385,7 +395,7 @@ export default function QuizzesPage() {
             <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span>Check your recall & mastery</span>
               <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", background: "rgba(132,229,188,0.15)", color: "var(--mint)", border: "1px solid rgba(132,229,188,0.3)" }}>
-                {openRouterKey ? "⚡ Gemma 4 26B (OpenRouter)" : "⚡ Free AI Models Active"}
+                {openRouterKey ? "⚡ Nemotron 3 Ultra (OpenRouter)" : "⚡ Free AI Models Active"}
               </span>
             </p>
             <h1>Quizzes</h1>

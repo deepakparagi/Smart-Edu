@@ -125,11 +125,15 @@ export default function FlashcardsPage() {
 const DEFAULT_OPENROUTER_KEY =
   process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
 
+const LEGACY_KEY_PREFIX = "sk-or-v1-8a9";
+
   // OpenRouter API Key State (defaults to configured key)
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       try {
         localStorage.setItem("openrouter_api_key", DEFAULT_OPENROUTER_KEY);
       } catch {}
@@ -141,7 +145,9 @@ const DEFAULT_OPENROUTER_KEY =
   const [keyInput, setKeyInput] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       return DEFAULT_OPENROUTER_KEY;
     }
     return DEFAULT_OPENROUTER_KEY;
@@ -443,7 +449,7 @@ const DEFAULT_OPENROUTER_KEY =
             <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Layers size={14} /> Active Recall &amp; Spaced Repetition
               <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", background: "rgba(132,229,188,0.15)", color: "var(--mint)", border: "1px solid rgba(132,229,188,0.3)" }}>
-                {openRouterKey ? "⚡ Gemma 4 26B (OpenRouter)" : "⚡ Free AI Models Active"}
+                {openRouterKey ? "⚡ Nemotron 3 Ultra (OpenRouter)" : "⚡ Free AI Models Active"}
               </span>
             </p>
             <h1 style={{ fontSize: "32px", fontWeight: 800, margin: "6px 0", letterSpacing: "-0.03em" }}>
@@ -979,7 +985,7 @@ const DEFAULT_OPENROUTER_KEY =
             </div>
 
             <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: "1.5", margin: "0 0 16px" }}>
-              Enter your OpenRouter API key to power flashcard generation with <strong>Google Gemma 4 26B</strong>. Your key is stored securely in your browser session.
+              Enter your OpenRouter API key to power flashcard generation with <strong>NVIDIA Nemotron 3 Ultra</strong> (<code>nvidia/nemotron-3-ultra-550b-a55b:free</code>). Your key is stored securely in your browser session.
             </p>
 
             <div style={{ marginBottom: "14px" }}>

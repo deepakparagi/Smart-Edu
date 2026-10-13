@@ -108,11 +108,15 @@ export default function TutorPage() {
 const DEFAULT_OPENROUTER_KEY =
   process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
 
+const LEGACY_KEY_PREFIX = "sk-or-v1-8a9";
+
   // OpenRouter API Key State (defaults to configured key)
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       try {
         localStorage.setItem("openrouter_api_key", DEFAULT_OPENROUTER_KEY);
       } catch {}
@@ -124,7 +128,9 @@ const DEFAULT_OPENROUTER_KEY =
   const [keyInput, setKeyInput] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("openrouter_api_key");
-      if (stored && stored.trim().length > 0) return stored.trim();
+      if (stored && stored.trim().length > 0 && !stored.startsWith(LEGACY_KEY_PREFIX)) {
+        return stored.trim();
+      }
       return DEFAULT_OPENROUTER_KEY;
     }
     return DEFAULT_OPENROUTER_KEY;
@@ -290,7 +296,7 @@ const DEFAULT_OPENROUTER_KEY =
             `- **Concept:** Key educational overview.\n` +
             `- **Explanation:** Step-by-step reasoning.\n` +
             `- **Example:** Applicable real-world use case.\n\n` +
-            `*Tip: Connect a free OpenRouter API key in the top right for live Gemma 4 26B generation!*`;
+            `*Tip: Connect a free OpenRouter API key in the top right for live Nemotron 3 Ultra generation!*`;
         }
 
         setMessages((current) => [
@@ -391,7 +397,7 @@ const DEFAULT_OPENROUTER_KEY =
             <p className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span>AI Learning Companion</span>
               <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", background: "rgba(132,229,188,0.15)", color: "var(--mint)", border: "1px solid rgba(132,229,188,0.3)" }}>
-                {openRouterKey ? "⚡ Gemma 4 26B (OpenRouter)" : "🌐 General AI Mode"}
+                {openRouterKey ? "⚡ Nemotron 3 Ultra (OpenRouter)" : "🌐 General AI Mode"}
               </span>
             </p>
             <h1>Study tutor</h1>
@@ -653,7 +659,7 @@ const DEFAULT_OPENROUTER_KEY =
             </div>
 
             <p style={{ fontSize: "13px", color: "var(--mist)", lineHeight: 1.5, margin: "0 0 16px" }}>
-              Smart Study connects to <strong>OpenRouter</strong> to run <strong>Google Gemma 4 26B</strong> (<code>google/gemma-4-26b-a4b-it:free</code>) and high-performance free models.
+              Smart Study connects to <strong>OpenRouter</strong> to run <strong>NVIDIA Nemotron 3 Ultra</strong> (<code>nvidia/nemotron-3-ultra-550b-a55b:free</code>) and high-performance free models.
               Enter your API key below:
             </p>
 

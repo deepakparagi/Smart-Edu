@@ -30,6 +30,12 @@ EXTRACTION_TIMEOUT_SECONDS = int(os.getenv("EXTRACTION_TIMEOUT_SECONDS", "120"))
 MAX_PAGES_PER_FILE = int(os.getenv("MAX_PAGES_PER_FILE", "200"))
 
 # LLM configuration (OpenRouter & Free Models)
+def get_openrouter_base_url() -> str:
+    base = (os.getenv("LLM_BASE_URL") or "https://openrouter.ai/api/v1").strip().rstrip("/")
+    if not base.endswith("/api/v1"):
+        base = f"{base}/api/v1"
+    return base
+
 def get_default_llm_key() -> str:
     return (
         os.getenv("OPENROUTER_API_KEY")
@@ -38,14 +44,15 @@ def get_default_llm_key() -> str:
     ).strip()
 
 DEFAULT_LLM_KEY = get_default_llm_key()
-DEFAULT_LLM_MODEL = os.getenv("LLM_MODEL") or "google/gemma-4-26b-a4b-it:free"
-OPENROUTER_BASE_URL = os.getenv("LLM_BASE_URL") or "https://openrouter.ai/api/v1"
+DEFAULT_LLM_MODEL = os.getenv("LLM_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free"
+OPENROUTER_BASE_URL = get_openrouter_base_url()
 
 FREE_MODELS_POOL = [
     DEFAULT_LLM_MODEL,
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "google/gemma-4-26b-a4b-it:free",
     "liquid/lfm-2.5-2.6b:free",
-    "nvidia/nemotron-3.5-lightning:free",
     "google/gemma-4-31b-it:free",
 ]
 
